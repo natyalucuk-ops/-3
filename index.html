@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>👻 NIGHT SHOOTER 👻</title>
+    <title>👻 NIGHT SHOOTER - DEFENSE</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
         body { min-height: 100vh; background: #0a0808; display: flex; justify-content: center; align-items: center; font-family: 'Courier New', monospace; }
@@ -24,16 +24,18 @@
 <div class="game-wrapper">
     <canvas id="gameCanvas" width="900" height="600"></canvas>
     <div class="ui-bar">
-        <div class="ui-box">🎯 SCORE <span id="scoreDisplay">0</span></div>
-        <div class="ui-box">📈 LEVEL <span id="levelDisplay">1</span></div>
-        <div class="ui-box">🩸 HEALTH <span id="healthDisplay">5</span></div>
+        <div class="ui-box">℗ SCORE <span id="scoreDisplay">0</span></div>
+        <div class="ui-box">➯ LEVEL <span id="levelDisplay">1</span></div>
+        <div class="ui-box">♡ HEALTH <span id="healthDisplay">5</span></div>
         <button class="restart-btn" id="restartBtn">↻ RESPAWN</button>
     </div>
 </div>
 
 <script>
     // ============================================================
-    //  OPTIMIZED NIGHT SHOOTER — TANPA LAG
+    //  NIGHT SHOOTER — DEFENSE MODE
+    //  Musuh spawn dari bawah/kanan/kiri → bergerak ke atas
+    //  Jika mencapai y=0 → health berkurang
     // ============================================================
 
     const canvas = document.getElementById('gameCanvas');
@@ -45,18 +47,16 @@
 
     // ---- STATE ----
     let score = 0, health = 5, level = 1, gameOver = false;
-    let spawnCounter = 0, spawnDelay = 35, screenShake = 0, frame = 0;
-    const player = { x: 450, y: 300, radius: 10 };
-    let enemies = [], particles = [], bullets = [], floatingTexts = [];
+    let spawnCounter = 0, spawnDelay = 50, screenShake = 0, frame = 0;
+    const player = { x: 450, y: 550, radius: 12 }; // Player di bawah
+    let enemies = [], particles = [], bullets = [];
 
-    // ---- BACKGROUND (di-cache) ----
-    // Gedung-gedung (statis, dihitung sekali)
+    // ---- BACKGROUND (CACHE) ----
     const buildings = [
         [10,55,280],[70,40,340],[115,60,210],[180,45,380],[230,55,260],
         [290,40,400],[335,65,190],[405,50,350],[460,40,420],[505,55,280],
         [565,45,370],[615,60,200],[680,50,390],[735,40,310],[780,55,440],[840,45,250]
     ];
-    // Jendela (pre-compute untuk setiap gedung)
     const windowData = buildings.map(([x,w,h]) => {
         const wins = [];
         for (let r = 0; r < Math.floor(h/28); r++) {
@@ -70,14 +70,11 @@
     });
 
     function drawBackground() {
-        // Langit
         const grad = ctx.createLinearGradient(0,0,0,H);
         grad.addColorStop(0,'#0b0a12'); grad.addColorStop(0.5,'#181420'); grad.addColorStop(1,'#0f0c10');
         ctx.fillStyle = grad; ctx.fillRect(0,0,W,H);
 
-        // Bintang (disederhanakan)
-        ctx.fillStyle = '#4a4a5a';
-        ctx.globalAlpha = 0.2;
+        ctx.fillStyle = '#4a4a5a'; ctx.globalAlpha = 0.2;
         for (let i=0; i<40; i++) {
             ctx.beginPath();
             ctx.arc(15 + i*23 + Math.sin(i)*5, 8 + i*7 + Math.cos(i*0.5)*4, 0.8, 0, Math.PI*2);
@@ -85,52 +82,79 @@
         }
         ctx.globalAlpha = 1;
 
-        // Gedung
         for (let idx=0; idx<buildings.length; idx++) {
             const [x,w,h] = buildings[idx];
             ctx.fillStyle = '#1a1418';
             ctx.shadowBlur = 20; ctx.shadowColor = '#0a0808';
             ctx.fillRect(x, H-h, w, h);
             ctx.shadowBlur = 0;
-
-            // Jendela (pakai data cache)
             ctx.fillStyle = 'rgba(255,200,150,0.25)';
             for (const win of windowData[idx]) {
                 ctx.fillRect(win.x, win.y, 8, 12);
             }
         }
 
-        // Teks kredit
         ctx.font = 'bold 20px monospace';
         ctx.fillStyle = '#5a4a3a'; ctx.globalAlpha = 0.5;
         ctx.fillText('42NDST.', 780, 40);
         ctx.font = '11px monospace';
         ctx.fillText('@gbergphoto', 820, 58);
         ctx.globalAlpha = 1;
+
+        // Garis batas atas (zona berbahaya)
+        ctx.strokeStyle = 'rgba(255, 50, 50, 0.2)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([10, 15]);
+        ctx.beginPath();
+        ctx.moveTo(0, 30);
+        ctx.lineTo(W, 30);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = 'rgba(255, 0, 0, 0.05)';
+        ctx.fillRect(0, 0, W, 30);
     }
 
-    // ---- SPAWN HANTU ----
+    // ---- SPAWN MUSUH (DARI BAWAH, KANAN, KIRI) ----
     function spawnEnemy() {
-        if (gameOver || enemies.length >= 6 + level * 2) return;
-        const side = Math.floor(Math.random() * 4);
-        let x,y;
-        if (side===0) { x=Math.random()*W; y=-40; }
-        else if (side===1) { x=W+40; y=Math.random()*H; }
-        else if (side===2) { x=Math.random()*W; y=H+40; }
-        else { x=-40; y=Math.random()*H; }
+        if (gameOver) return;
+        const maxEnemies = Math.min(5 + level * 2, 25);
+        if (enemies.length >= maxEnemies) return;
 
-        const speed = 0.8 + level*0.18 + Math.random()*0.4;
-        const ang = Math.atan2(300-y, 450-x);
-        const radius = 22 + Math.random()*10;
+        // Pilih sisi spawn: 0=kiri, 1=kanan, 2=bawah
+        const side = Math.floor(Math.random() * 3);
+        let x, y;
+        const pad = 40;
+        switch(side) {
+            case 0: // Kiri
+                x = -pad;
+                y = 30 + Math.random() * (H - 100);
+                break;
+            case 1: // Kanan
+                x = W + pad;
+                y = 30 + Math.random() * (H - 100);
+                break;
+            case 2: // Bawah
+                x = 50 + Math.random() * (W - 100);
+                y = H + pad;
+                break;
+        }
+
+        // Kecepatan: bergerak ke ATAS (sudut antara 180° - 360° / ke atas)
+        const speed = 0.8 + level * 0.12 + Math.random() * 0.3;
+        // Arah ke atas dengan sedikit variasi
+        const angle = -Math.PI/2 + (Math.random() - 0.5) * 0.8;
+
         enemies.push({
             x, y,
-            vx: Math.cos(ang)*speed,
-            vy: Math.sin(ang)*speed,
-            radius,
-            phase: Math.random()*Math.PI*2,
-            floatAmp: 0.4 + Math.random()*0.5,
-            floatSpeed: 1.5 + Math.random()*1.5,
-            alpha: 0.5 + Math.random()*0.4,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed, // vy negatif = ke atas
+            radius: 22 + Math.random() * 10,
+            phase: Math.random() * Math.PI * 2,
+            floatAmp: 0.2 + Math.random() * 0.4,
+            floatSpeed: 1.5 + Math.random() * 1.5,
+            alpha: 0.5 + Math.random() * 0.4,
+            // Sedikit gerakan zig-zag
+            wiggle: (Math.random() - 0.5) * 0.3,
         });
     }
 
@@ -152,47 +176,57 @@
         mx = Math.min(W, Math.max(0, mx));
         my = Math.min(H, Math.max(0, my));
         player.x = mx; player.y = my;
-        screenShake = 5;
+        screenShake = 4;
 
-        // Partikel (dikurangi)
+        // Partikel tembakan
         for (let i=0; i<8; i++) {
             const a = Math.random()*2*Math.PI;
-            const d = 4 + Math.random()*15;
+            const d = 4 + Math.random()*12;
             particles.push({
                 x: mx, y: my,
-                vx: Math.cos(a)*d*0.6,
-                vy: Math.sin(a)*d*0.6 - 0.8,
+                vx: Math.cos(a)*d*0.5,
+                vy: Math.sin(a)*d*0.5 - 0.5,
                 life: 1,
-                decay: 0.025 + Math.random()*0.03,
-                radius: 2 + Math.random()*4,
+                decay: 0.03 + Math.random()*0.03,
+                radius: 2 + Math.random()*3,
                 color: `hsl(35, 95%, 70%)`,
             });
         }
 
-        // Deteksi tembakan
+        // Buat bullet (proyektil ke atas)
+        bullets.push({
+            x: mx,
+            y: my - 10,
+            vy: -8,
+            radius: 5,
+            life: 1,
+        });
+
+        // Deteksi tembakan ke musuh
         for (let i=enemies.length-1; i>=0; i--) {
             const e = enemies[i];
-            if (Math.hypot(mx-e.x, my-e.y) < e.radius*0.65 + 8) {
-                // Ledakan (dikurangi)
-                for (let j=0; j<20; j++) {
+            const dist = Math.hypot(mx - e.x, my - e.y);
+            if (dist < e.radius * 0.6 + 10) {
+                // Ledakan
+                for (let j=0; j<15; j++) {
                     const a = Math.random()*2*Math.PI;
-                    const s = 2 + Math.random()*6;
+                    const s = 2 + Math.random()*5;
                     particles.push({
                         x: e.x, y: e.y,
                         vx: Math.cos(a)*s,
-                        vy: Math.sin(a)*s - 0.8,
+                        vy: Math.sin(a)*s - 0.5,
                         life: 1,
-                        decay: 0.015 + Math.random()*0.025,
-                        radius: 3 + Math.random()*8,
+                        decay: 0.02 + Math.random()*0.025,
+                        radius: 3 + Math.random()*6,
                         color: `hsla(200, 80%, 70%, 0.7)`,
                     });
                 }
                 enemies.splice(i,1);
                 score++;
-                const newLevel = Math.floor(score/8)+1;
+                const newLevel = Math.floor(score/10) + 1;
                 if (newLevel > level) {
                     level = newLevel;
-                    spawnDelay = Math.max(10, 35 - level*1.8);
+                    spawnDelay = Math.max(12, 50 - level * 2);
                 }
                 updateUI();
                 break;
@@ -200,16 +234,18 @@
         }
     }
 
+    // ---- UPDATE UI ----
     function updateUI() {
         scoreSpan.textContent = score;
         healthSpan.textContent = health;
         levelSpan.textContent = level;
     }
 
+    // ---- RESTART ----
     function restartGame() {
-        score=0; health=5; level=1; spawnDelay=35; gameOver=false;
-        enemies=[]; particles=[]; bullets=[]; floatingTexts=[];
-        player.x=450; player.y=300; screenShake=0;
+        score=0; health=5; level=1; spawnDelay=50; gameOver=false;
+        enemies=[]; particles=[]; bullets=[];
+        player.x=450; player.y=550; screenShake=0;
         updateUI();
     }
 
@@ -223,72 +259,88 @@
         if (spawnCounter >= spawnDelay) {
             spawnCounter = 0;
             spawnEnemy();
-            if (level > 4 && Math.random()<0.2) spawnEnemy();
+            if (level > 4 && Math.random() < 0.15) spawnEnemy();
+            if (level > 8 && Math.random() < 0.15) spawnEnemy();
         }
 
-        // Gerakkan hantu
+        // ---- GERAKKAN MUSUH (KE ATAS) ----
         for (let i=enemies.length-1; i>=0; i--) {
             const e = enemies[i];
-            const floatOffset = Math.sin(frame*0.02*e.floatSpeed + e.phase) * e.floatAmp * 0.25;
-            e.x += e.vx * 0.8;
-            e.y += e.vy * 0.8 + floatOffset * 0.1;
+            
+            // Gerakan utama ke atas + zig-zag
+            e.x += e.vx + Math.sin(frame * 0.03 + e.phase) * e.wiggle * 0.5;
+            e.y += e.vy;
+            
+            // Efek terapung ringan
+            e.x += Math.sin(frame * 0.02 * e.floatSpeed + e.phase) * e.floatAmp * 0.1;
 
-            const ang = Math.atan2(player.y-e.y, player.x-e.x);
-            e.vx += Math.cos(ang) * 0.03 * level * 0.2;
-            e.vy += Math.sin(ang) * 0.03 * level * 0.2;
-            const maxSpd = 1.6 + level*0.18;
-            const spd = Math.hypot(e.vx, e.vy);
-            if (spd > maxSpd) { e.vx = (e.vx/spd)*maxSpd; e.vy = (e.vy/spd)*maxSpd; }
-
-            // Tabrakan player
-            if (Math.hypot(e.x-player.x, e.y-player.y) < e.radius + player.radius) {
+            // ---- JIKA MENCAPAI ATAS (y <= 30) ----
+            if (e.y <= 30) {
                 health--;
                 updateUI();
                 screenShake = 10;
+                
+                // Efek merah di atas
                 for (let j=0; j<15; j++) {
                     const a = Math.random()*2*Math.PI;
-                    const s = 2+Math.random()*5;
+                    const s = 2 + Math.random()*4;
                     particles.push({
-                        x: player.x, y: player.y,
+                        x: e.x, y: 15,
                         vx: Math.cos(a)*s,
-                        vy: Math.sin(a)*s - 0.8,
+                        vy: Math.sin(a)*s * 0.5,
                         life: 1,
-                        decay: 0.02+Math.random()*0.025,
-                        radius: 3+Math.random()*7,
-                        color: `hsla(0, 90%, 40%, 0.8)`,
+                        decay: 0.025 + Math.random()*0.025,
+                        radius: 3 + Math.random()*5,
+                        color: `hsla(0, 90%, 50%, 0.8)`,
                     });
                 }
-                enemies.splice(i,1);
-                if (health <= 0) { health=0; gameOver=true; updateUI(); }
+                
+                enemies.splice(i, 1);
+                
+                if (health <= 0) {
+                    health = 0;
+                    gameOver = true;
+                    updateUI();
+                }
                 continue;
             }
 
-            // Keluar canvas
-            if (e.x < -120 || e.x > W+120 || e.y < -120 || e.y > H+120) {
-                const side2 = Math.floor(Math.random()*4);
-                if (side2===0) { e.x=Math.random()*W; e.y=-40; }
-                else if (side2===1) { e.x=W+40; e.y=Math.random()*H; }
-                else if (side2===2) { e.x=Math.random()*W; e.y=H+40; }
-                else { e.x=-40; e.y=Math.random()*H; }
-                const a2 = Math.atan2(300-e.y, 450-e.x);
-                const spd2 = 0.8 + level*0.15;
-                e.vx = Math.cos(a2)*spd2;
-                e.vy = Math.sin(a2)*spd2;
+            // ---- KELUAR DARI SAMPING? RESPAWN DARI BAWAH ----
+            if (e.x < -100 || e.x > W + 100) {
+                e.x = 50 + Math.random() * (W - 100);
+                e.y = H + 30;
+                // Arah ke atas lagi
+                const angle = -Math.PI/2 + (Math.random() - 0.5) * 0.6;
+                const speed = 0.8 + level * 0.12 + Math.random() * 0.3;
+                e.vx = Math.cos(angle) * speed;
+                e.vy = Math.sin(angle) * speed;
             }
         }
 
-        // Partikel
+        // ---- BULLET ----
+        for (let i=bullets.length-1; i>=0; i--) {
+            const b = bullets[i];
+            b.y += b.vy;
+            b.life -= 0.02;
+            if (b.y < -20 || b.life <= 0) {
+                bullets.splice(i, 1);
+            }
+        }
+
+        // ---- PARTIKEL ----
         for (let i=particles.length-1; i>=0; i--) {
             const p = particles[i];
-            p.x += p.vx; p.y += p.vy;
-            p.vy += 0.05;
-            p.vx *= 0.97; p.vy *= 0.97;
+            p.x += p.vx;
+            p.y += p.vy;
+            p.vy += 0.04;
+            p.vx *= 0.97;
+            p.vy *= 0.97;
             p.life -= p.decay;
-            if (p.life <= 0) particles.splice(i,1);
+            if (p.life <= 0) particles.splice(i, 1);
         }
-        if (particles.length > 300) particles.splice(0, particles.length-300);
+        if (particles.length > 200) particles.splice(0, particles.length - 200);
 
-        // Screen shake
+        // ---- SCREEN SHAKE ----
         if (screenShake > 0) screenShake *= 0.9;
         if (screenShake < 0.1) screenShake = 0;
     }
@@ -297,93 +349,109 @@
     function draw() {
         ctx.save();
         if (screenShake > 0.5) {
-            ctx.translate((Math.random()-0.5)*screenShake*1.5, (Math.random()-0.5)*screenShake*1.5);
+            ctx.translate((Math.random()-0.5)*screenShake*1.2, (Math.random()-0.5)*screenShake*1.2);
         }
 
         drawBackground();
 
-        // Partikel
+        // ---- BULLET ----
+        for (const b of bullets) {
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = '#ffaa44';
+            ctx.fillStyle = '#ffdd77';
+            ctx.beginPath();
+            ctx.arc(b.x, b.y, b.radius * b.life, 0, Math.PI*2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+        }
+
+        // ---- PARTIKEL ----
         for (const p of particles) {
             ctx.globalAlpha = p.life * 0.9;
-            ctx.shadowBlur = 10;
+            ctx.shadowBlur = 8;
             ctx.shadowColor = '#ff6633';
             ctx.beginPath();
             ctx.arc(p.x, p.y, p.radius * p.life, 0, Math.PI*2);
             ctx.fillStyle = p.color || '#cc5533';
             ctx.fill();
         }
-        ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+        ctx.globalAlpha = 1;
+        ctx.shadowBlur = 0;
 
-        // Hantu
+        // ---- MUSUH ----
         for (const e of enemies) {
             const r = e.radius;
-            // Glow ringan
-            const grad = ctx.createRadialGradient(e.x, e.y, 2, e.x, e.y, r*1.6);
-            grad.addColorStop(0, `hsla(210, 70%, 70%, ${e.alpha*0.3})`);
+            
+            // Glow
+            const grad = ctx.createRadialGradient(e.x, e.y, 2, e.x, e.y, r*1.5);
+            grad.addColorStop(0, `hsla(210, 70%, 70%, ${e.alpha*0.25})`);
             grad.addColorStop(1, 'rgba(0,0,0,0)');
             ctx.fillStyle = grad;
             ctx.beginPath();
-            ctx.arc(e.x, e.y, r*1.6, 0, Math.PI*2);
+            ctx.arc(e.x, e.y, r*1.5, 0, Math.PI*2);
             ctx.fill();
 
             // Badan
-            ctx.shadowBlur = 25;
-            ctx.shadowColor = 'rgba(100,150,255,0.4)';
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = 'rgba(100,150,255,0.3)';
             ctx.fillStyle = `hsla(210, 70%, 70%, ${e.alpha*0.5})`;
             ctx.beginPath();
             ctx.arc(e.x, e.y, r, 0, Math.PI*2);
             ctx.fill();
 
-            // Ekor
-            ctx.fillStyle = `hsla(210, 70%, 70%, ${e.alpha*0.35})`;
-            ctx.shadowBlur = 15;
+            // Ekor (ke bawah, karena bergerak ke atas)
+            ctx.fillStyle = `hsla(210, 70%, 70%, ${e.alpha*0.3})`;
+            ctx.shadowBlur = 10;
             ctx.beginPath();
-            ctx.moveTo(e.x - r*0.5, e.y + r*0.25);
+            ctx.moveTo(e.x - r*0.4, e.y - r*0.3);
             for (let t=0; t<=1; t+=0.05) {
-                const waveX = e.x + Math.sin(t*8 + frame*0.04 + e.phase) * r*0.3;
-                const waveY = e.y + r*0.25 + t*r*0.65;
+                const waveX = e.x + Math.sin(t*8 + frame*0.04 + e.phase) * r*0.25;
+                const waveY = e.y - r*0.3 - t*r*0.5;
                 ctx.lineTo(waveX, waveY);
             }
-            ctx.lineTo(e.x + r*0.5, e.y + r*0.25);
+            ctx.lineTo(e.x + r*0.4, e.y - r*0.3);
             ctx.closePath();
             ctx.fill();
 
             // Mata
-            ctx.shadowBlur = 20; ctx.shadowColor = '#ff3333';
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = '#ff3333';
             ctx.fillStyle = '#ff1a1a';
             ctx.beginPath();
-            ctx.arc(e.x - r*0.3, e.y - r*0.15, r*0.16, 0, Math.PI*2);
+            ctx.arc(e.x - r*0.3, e.y - r*0.1, r*0.15, 0, Math.PI*2);
             ctx.fill();
             ctx.beginPath();
-            ctx.arc(e.x + r*0.3, e.y - r*0.15, r*0.16, 0, Math.PI*2);
+            ctx.arc(e.x + r*0.3, e.y - r*0.1, r*0.15, 0, Math.PI*2);
             ctx.fill();
             ctx.shadowBlur = 0;
         }
 
-        // Player (crosshair)
+        // ---- PLAYER (CROSSHAIR) ----
         const px=player.x, py=player.y;
-        ctx.shadowBlur = 25; ctx.shadowColor = '#ff4400';
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = '#ff4400';
         ctx.strokeStyle = 'rgba(255,200,150,0.8)';
         ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.arc(px, py, player.radius+6, 0, Math.PI*2);
+        ctx.arc(px, py, player.radius+5, 0, Math.PI*2);
         ctx.stroke();
-        ctx.shadowBlur = 15;
+        ctx.shadowBlur = 12;
         ctx.strokeStyle = 'rgba(255,200,150,0.9)';
         ctx.lineWidth = 2.5;
-        const s = 16;
+        const s = 15;
         ctx.beginPath();
         ctx.moveTo(px-s, py); ctx.lineTo(px+s, py);
         ctx.moveTo(px, py-s); ctx.lineTo(px, py+s);
         ctx.stroke();
-        ctx.shadowBlur = 30; ctx.shadowColor = '#ff2200';
+        ctx.shadowBlur = 25;
+        ctx.shadowColor = '#ff2200';
         ctx.fillStyle = '#ff3333';
         ctx.beginPath();
-        ctx.arc(px, py, 4, 0, Math.PI*2);
+        ctx.arc(px, py, 3.5, 0, Math.PI*2);
         ctx.fill();
         ctx.shadowBlur = 0;
 
-        // Game Over
+        // ---- GAME OVER ----
         if (gameOver) {
             ctx.fillStyle = 'rgba(8,0,0,0.7)';
             ctx.fillRect(0,0,W,H);
@@ -416,32 +484,42 @@
     canvas.addEventListener('mousemove', (e) => {
         if (gameOver) return;
         const rect = canvas.getBoundingClientRect();
-        const scaleX = W/rect.width, scaleY = H/rect.height;
+        const scaleX = W/rect.width;
+        const scaleY = H/rect.height;
         let mx = (e.clientX - rect.left)*scaleX;
         let my = (e.clientY - rect.top)*scaleY;
         mx = Math.min(W, Math.max(0, mx));
         my = Math.min(H, Math.max(0, my));
-        player.x = mx; player.y = my;
+        player.x = mx;
+        player.y = my;
     });
-    canvas.addEventListener('touchstart', (e) => { e.preventDefault(); handleShoot(e); });
+    canvas.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        handleShoot(e);
+    });
     canvas.addEventListener('touchmove', (e) => {
         e.preventDefault();
         if (gameOver) return;
         const rect = canvas.getBoundingClientRect();
-        const scaleX = W/rect.width, scaleY = H/rect.height;
+        const scaleX = W/rect.width;
+        const scaleY = H/rect.height;
         const t = e.touches[0];
         let mx = (t.clientX - rect.left)*scaleX;
         let my = (t.clientY - rect.top)*scaleY;
         mx = Math.min(W, Math.max(0, mx));
         my = Math.min(H, Math.max(0, my));
-        player.x = mx; player.y = my;
+        player.x = mx;
+        player.y = my;
     }, { passive: false });
     document.getElementById('restartBtn').addEventListener('click', restartGame);
 
     // ---- START ----
     restartGame();
     gameLoop();
-    console.log('👻 NIGHT SHOOTER 👻');
+    console.log('👻 NIGHT SHOOTER — DEFENSE MODE');
+    console.log('Musuh spawn dari bawah/kanan/kiri → bergerak ke atas');
+    console.log('Jika mencapai atas → health berkurang 1');
+    console.log('Tembak sebelum mereka lolos!');
 </script>
 </body>
 </html>
