@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>👻 NIGHT SHOOTER 👻</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
+        body { min-height: 100vh; background: #0a0808; display: flex; justify-content: center; align-items: center; font-family: 'Courier New', monospace; }
+        .game-wrapper { background: #0f0c0a; padding: 18px; border-radius: 28px; border: 1px solid #3a2a1a; box-shadow: 0 0 60px rgba(200,80,30,0.25); }
+        #gameCanvas { display: block; width: 900px; height: 600px; border-radius: 18px; cursor: none; background: #1a100c; }
+        .ui-bar { display: flex; justify-content: space-between; align-items: center; margin-top: 14px; padding: 0 8px; color: #c0a898; font-weight: bold; font-size: 17px; flex-wrap: wrap; gap: 8px; }
+        .ui-box { background: rgba(10,6,4,0.85); padding: 6px 22px; border-radius: 40px; border: 1px solid #3a2a1a; }
+        .ui-box span { color: #e0c8b0; }
+        #scoreDisplay { color: #f0d8b0; font-size: 24px; margin-left: 8px; }
+        #healthDisplay { color: #ff6a4a; font-size: 24px; margin-left: 8px; }
+        #levelDisplay { color: #b0d0ff; font-size: 20px; margin-left: 8px; }
+        .restart-btn { background: #1f100a; border: 1px solid #4a2a1a; color: #d0b8a0; padding: 6px 24px; border-radius: 40px; font-family: 'Courier New', monospace; font-weight: bold; font-size: 15px; cursor: pointer; transition: 0.25s; }
+        .restart-btn:hover { background: #2f1810; color: #ffe0c0; border-color: #8a3a2a; box-shadow: 0 0 35px rgba(200,50,20,0.5); transform: scale(1.03); }
+        @media (max-width: 960px) { .game-wrapper { padding: 10px; } #gameCanvas { width: 100%; height: auto; aspect-ratio: 900/600; } .ui-bar { font-size: 13px; justify-content: center; } }
+    </style>
+</head>
+<body>
+<div class="game-wrapper">
+    <canvas id="gameCanvas" width="900" height="600"></canvas>
+    <div class="ui-bar">
+        <div class="ui-box">🎯 SCORE <span id="scoreDisplay">0</span></div>
+        <div class="ui-box">📈 LEVEL <span id="levelDisplay">1</span></div>
+        <div class="ui-box">🩸 HEALTH <span id="healthDisplay">5</span></div>
+        <button class="restart-btn" id="restartBtn">↻ RESPAWN</button>
+    </div>
+</div>
+
+<script>
+    // ============================================================
+    //  OPTIMIZED NIGHT SHOOTER — TANPA LAG
+    // ============================================================
+
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const W = 900, H = 600;
+    const scoreSpan = document.getElementById('scoreDisplay');
+    const healthSpan = document.getElementById('healthDisplay');
+    const levelSpan = document.getElementById('levelDisplay');
+
+    // ---- STATE ----
+    let score = 0, health = 5, level = 1, gameOver = false;
+    let spawnCounter = 0, spawnDelay = 35, screenShake = 0, frame = 0;
+    const player = { x: 450, y: 300, radius: 10 };
+    let enemies = [], particles = [], bullets = [], floatingTexts = [];
+
+    // ---- BACKGROUND (di-cache) ----
+    // Gedung-gedung (statis, dihitung sekali)
+    const buildings = [
+        [10,55,280],[70,40,340],[115,60,210],[180,45,380],[230,55,260],
+        [290,40,400],[335,65,190],[405,50,350],[460,40,420],[505,55,280],
+        [565,45,370],[615,60,200],[680,50,390],[735,40,310],[780,55,440],[840,45,250]
+    ];
+    // Jendela (pre-compute untuk setiap gedung)
+    const windowData = buildings.map(([x,w,h]) => {
+        const wins = [];
+        for (let r = 0; r < Math.floor(h/28); r++) {
+            for (let c = 0; c < Math.floor(w/18); c++) {
+                if (Math.random() > 0.4) {
+                    wins.push({ x: x + 4 + c*18, y: H - h + 8 + r*28 });
+                }
+            }
+        }
+        return wins;
+    });
+
+    function drawBackground() {
+        // Langit
+        const grad = ctx.createLinearGradient(0,0,0,H);
+        grad.addColorStop(0,'#0b0a12'); grad.addColorStop(0.5,'#181420'); grad.addColorStop(1,'#0f0c10');
+        ctx.fillStyle = grad; ctx.fillRect(0,0,W,H);
+
+        // Bintang (disederhanakan)
+        ctx.fillStyle = '#4a4a5a';
+        ctx.globalAlpha = 0.2;
+        for (let i=0; i<40; i++) {
+            ctx.beginPath();
+            ctx.arc(15 + i*23 + Math.sin(i)*5, 8 + i*7 + Math.cos(i*0.5)*4, 0.8, 0, Math.PI*2);
+            ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+
+        // Gedung
+        for (let idx=0; idx<buildings.length; idx++) {
+            const [x,w,h] = buildings[idx];
+            ctx.fillStyle = '#1a1418';
+            ctx.shadowBlur = 20; ctx.shadowColor = '#0a0808';
+            ctx.fillRect(x, H-h, w, h);
+            ctx.shadowBlur = 0;
+
+            // Jendela (pakai data cache)
+            ctx.fillStyle = 'rgba(255,200,150,0.25)';
+            for (const win of windowData[idx]) {
+                ctx.fillRect(win.x, win.y, 8, 12);
+            }
+        }
+
+        // Teks kredit
+        ctx.font = 'bold 20px monospace';
+        ctx.fillStyle = '#5a4a3a'; ctx.globalAlpha = 0.5;
+        ctx.fillText('42NDST.', 780, 40);
+        ctx.font = '11px monospace';
+        ctx.fillText('@gbergphoto', 820, 58);
+        ctx.globalAlpha = 1;
+    }
+
+    // ---- SPAWN HANTU ----
+    function spawnEnemy() {
+        if (gameOver || enemies.length >= 6 + level * 2) return;
+        const side = Math.floor(Math.random() * 4);
+        let x,y;
+        if (side===0) { x=Math.random()*W; y=-40; }
+        else if (side===1) { x=W+40; y=Math.random()*H; }
+        else if (side===2) { x=Math.random()*W; y=H+40; }
+        else { x=-40; y=Math.random()*H; }
+
+        const speed = 0.8 + level*0.18 + Math.random()*0.4;
+        const ang = Math.atan2(300-y, 450-x);
+        const radius = 22 + Math.random()*10;
+        enemies.push({
+            x, y,
+            vx: Math.cos(ang)*speed,
+            vy: Math.sin(ang)*speed,
+            radius,
+            phase: Math.random()*Math.PI*2,
+            floatAmp: 0.4 + Math.random()*0.5,
+            floatSpeed: 1.5 + Math.random()*1.5,
+            alpha: 0.5 + Math.random()*0.4,
+        });
+    }
+
+    // ---- TEMBAK ----
+    function handleShoot(e) {
+        if (gameOver) return;
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = W/rect.width, scaleY = H/rect.height;
+        let mx, my;
+        if (e.touches) {
+            const t = e.touches[0];
+            mx = (t.clientX - rect.left)*scaleX;
+            my = (t.clientY - rect.top)*scaleY;
+            e.preventDefault();
+        } else {
+            mx = (e.clientX - rect.left)*scaleX;
+            my = (e.clientY - rect.top)*scaleY;
+        }
+        mx = Math.min(W, Math.max(0, mx));
+        my = Math.min(H, Math.max(0, my));
+        player.x = mx; player.y = my;
+        screenShake = 5;
+
+        // Partikel (dikurangi)
+        for (let i=0; i<8; i++) {
+            const a = Math.random()*2*Math.PI;
+            const d = 4 + Math.random()*15;
+            particles.push({
+                x: mx, y: my,
+                vx: Math.cos(a)*d*0.6,
+                vy: Math.sin(a)*d*0.6 - 0.8,
+                life: 1,
+                decay: 0.025 + Math.random()*0.03,
+                radius: 2 + Math.random()*4,
+                color: `hsl(35, 95%, 70%)`,
+            });
+        }
+
+        // Deteksi tembakan
+        for (let i=enemies.length-1; i>=0; i--) {
+            const e = enemies[i];
+            if (Math.hypot(mx-e.x, my-e.y) < e.radius*0.65 + 8) {
+                // Ledakan (dikurangi)
+                for (let j=0; j<20; j++) {
+                    const a = Math.random()*2*Math.PI;
+                    const s = 2 + Math.random()*6;
+                    particles.push({
+                        x: e.x, y: e.y,
+                        vx: Math.cos(a)*s,
+                        vy: Math.sin(a)*s - 0.8,
+                        life: 1,
+                        decay: 0.015 + Math.random()*0.025,
+                        radius: 3 + Math.random()*8,
+                        color: `hsla(200, 80%, 70%, 0.7)`,
+                    });
+                }
+                enemies.splice(i,1);
+                score++;
+                const newLevel = Math.floor(score/8)+1;
+                if (newLevel > level) {
+                    level = newLevel;
+                    spawnDelay = Math.max(10, 35 - level*1.8);
+                }
+                updateUI();
+                break;
+            }
+        }
+    }
+
+    function updateUI() {
+        scoreSpan.textContent = score;
+        healthSpan.textContent = health;
+        levelSpan.textContent = level;
+    }
+
+    function restartGame() {
+        score=0; health=5; level=1; spawnDelay=35; gameOver=false;
+        enemies=[]; particles=[]; bullets=[]; floatingTexts=[];
+        player.x=450; player.y=300; screenShake=0;
+        updateUI();
+    }
+
+    // ---- UPDATE ----
+    function update() {
+        frame++;
+        if (gameOver) return;
+
+        // Spawn
+        spawnCounter++;
+        if (spawnCounter >= spawnDelay) {
+            spawnCounter = 0;
+            spawnEnemy();
+            if (level > 4 && Math.random()<0.2) spawnEnemy();
+        }
+
+        // Gerakkan hantu
+        for (let i=enemies.length-1; i>=0; i--) {
+            const e = enemies[i];
+            const floatOffset = Math.sin(frame*0.02*e.floatSpeed + e.phase) * e.floatAmp * 0.25;
+            e.x += e.vx * 0.8;
+            e.y += e.vy * 0.8 + floatOffset * 0.1;
+
+            const ang = Math.atan2(player.y-e.y, player.x-e.x);
+            e.vx += Math.cos(ang) * 0.03 * level * 0.2;
+            e.vy += Math.sin(ang) * 0.03 * level * 0.2;
+            const maxSpd = 1.6 + level*0.18;
+            const spd = Math.hypot(e.vx, e.vy);
+            if (spd > maxSpd) { e.vx = (e.vx/spd)*maxSpd; e.vy = (e.vy/spd)*maxSpd; }
+
+            // Tabrakan player
+            if (Math.hypot(e.x-player.x, e.y-player.y) < e.radius + player.radius) {
+                health--;
+                updateUI();
+                screenShake = 10;
+                for (let j=0; j<15; j++) {
+                    const a = Math.random()*2*Math.PI;
+                    const s = 2+Math.random()*5;
+                    particles.push({
+                        x: player.x, y: player.y,
+                        vx: Math.cos(a)*s,
+                        vy: Math.sin(a)*s - 0.8,
+                        life: 1,
+                        decay: 0.02+Math.random()*0.025,
+                        radius: 3+Math.random()*7,
+                        color: `hsla(0, 90%, 40%, 0.8)`,
+                    });
+                }
+                enemies.splice(i,1);
+                if (health <= 0) { health=0; gameOver=true; updateUI(); }
+                continue;
+            }
+
+            // Keluar canvas
+            if (e.x < -120 || e.x > W+120 || e.y < -120 || e.y > H+120) {
+                const side2 = Math.floor(Math.random()*4);
+                if (side2===0) { e.x=Math.random()*W; e.y=-40; }
+                else if (side2===1) { e.x=W+40; e.y=Math.random()*H; }
+                else if (side2===2) { e.x=Math.random()*W; e.y=H+40; }
+                else { e.x=-40; e.y=Math.random()*H; }
+                const a2 = Math.atan2(300-e.y, 450-e.x);
+                const spd2 = 0.8 + level*0.15;
+                e.vx = Math.cos(a2)*spd2;
+                e.vy = Math.sin(a2)*spd2;
+            }
+        }
+
+        // Partikel
+        for (let i=particles.length-1; i>=0; i--) {
+            const p = particles[i];
+            p.x += p.vx; p.y += p.vy;
+            p.vy += 0.05;
+            p.vx *= 0.97; p.vy *= 0.97;
+            p.life -= p.decay;
+            if (p.life <= 0) particles.splice(i,1);
+        }
+        if (particles.length > 300) particles.splice(0, particles.length-300);
+
+        // Screen shake
+        if (screenShake > 0) screenShake *= 0.9;
+        if (screenShake < 0.1) screenShake = 0;
+    }
+
+    // ---- DRAW ----
+    function draw() {
+        ctx.save();
+        if (screenShake > 0.5) {
+            ctx.translate((Math.random()-0.5)*screenShake*1.5, (Math.random()-0.5)*screenShake*1.5);
+        }
+
+        drawBackground();
+
+        // Partikel
+        for (const p of particles) {
+            ctx.globalAlpha = p.life * 0.9;
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = '#ff6633';
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.radius * p.life, 0, Math.PI*2);
+            ctx.fillStyle = p.color || '#cc5533';
+            ctx.fill();
+        }
+        ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+
+        // Hantu
+        for (const e of enemies) {
+            const r = e.radius;
+            // Glow ringan
+            const grad = ctx.createRadialGradient(e.x, e.y, 2, e.x, e.y, r*1.6);
+            grad.addColorStop(0, `hsla(210, 70%, 70%, ${e.alpha*0.3})`);
+            grad.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.arc(e.x, e.y, r*1.6, 0, Math.PI*2);
+            ctx.fill();
+
+            // Badan
+            ctx.shadowBlur = 25;
+            ctx.shadowColor = 'rgba(100,150,255,0.4)';
+            ctx.fillStyle = `hsla(210, 70%, 70%, ${e.alpha*0.5})`;
+            ctx.beginPath();
+            ctx.arc(e.x, e.y, r, 0, Math.PI*2);
+            ctx.fill();
+
+            // Ekor
+            ctx.fillStyle = `hsla(210, 70%, 70%, ${e.alpha*0.35})`;
+            ctx.shadowBlur = 15;
+            ctx.beginPath();
+            ctx.moveTo(e.x - r*0.5, e.y + r*0.25);
+            for (let t=0; t<=1; t+=0.05) {
+                const waveX = e.x + Math.sin(t*8 + frame*0.04 + e.phase) * r*0.3;
+                const waveY = e.y + r*0.25 + t*r*0.65;
+                ctx.lineTo(waveX, waveY);
+            }
+            ctx.lineTo(e.x + r*0.5, e.y + r*0.25);
+            ctx.closePath();
+            ctx.fill();
+
+            // Mata
+            ctx.shadowBlur = 20; ctx.shadowColor = '#ff3333';
+            ctx.fillStyle = '#ff1a1a';
+            ctx.beginPath();
+            ctx.arc(e.x - r*0.3, e.y - r*0.15, r*0.16, 0, Math.PI*2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(e.x + r*0.3, e.y - r*0.15, r*0.16, 0, Math.PI*2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+        }
+
+        // Player (crosshair)
+        const px=player.x, py=player.y;
+        ctx.shadowBlur = 25; ctx.shadowColor = '#ff4400';
+        ctx.strokeStyle = 'rgba(255,200,150,0.8)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(px, py, player.radius+6, 0, Math.PI*2);
+        ctx.stroke();
+        ctx.shadowBlur = 15;
+        ctx.strokeStyle = 'rgba(255,200,150,0.9)';
+        ctx.lineWidth = 2.5;
+        const s = 16;
+        ctx.beginPath();
+        ctx.moveTo(px-s, py); ctx.lineTo(px+s, py);
+        ctx.moveTo(px, py-s); ctx.lineTo(px, py+s);
+        ctx.stroke();
+        ctx.shadowBlur = 30; ctx.shadowColor = '#ff2200';
+        ctx.fillStyle = '#ff3333';
+        ctx.beginPath();
+        ctx.arc(px, py, 4, 0, Math.PI*2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+
+        // Game Over
+        if (gameOver) {
+            ctx.fillStyle = 'rgba(8,0,0,0.7)';
+            ctx.fillRect(0,0,W,H);
+            ctx.font = 'bold 60px monospace';
+            ctx.fillStyle = '#cc2222';
+            ctx.shadowColor = '#ff0000';
+            ctx.shadowBlur = 60;
+            ctx.textAlign = 'center';
+            ctx.fillText('☠️ GAME OVER ☠️', 450, 250);
+            ctx.font = '24px monospace';
+            ctx.fillStyle = '#dd9988';
+            ctx.shadowBlur = 20;
+            ctx.fillText('klik "RESPAWN" untuk bangkit', 450, 340);
+            ctx.shadowBlur = 0;
+            ctx.textAlign = 'left';
+        }
+
+        ctx.restore();
+    }
+
+    // ---- LOOP ----
+    function gameLoop() {
+        update();
+        draw();
+        requestAnimationFrame(gameLoop);
+    }
+
+    // ---- EVENTS ----
+    canvas.addEventListener('click', handleShoot);
+    canvas.addEventListener('mousemove', (e) => {
+        if (gameOver) return;
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = W/rect.width, scaleY = H/rect.height;
+        let mx = (e.clientX - rect.left)*scaleX;
+        let my = (e.clientY - rect.top)*scaleY;
+        mx = Math.min(W, Math.max(0, mx));
+        my = Math.min(H, Math.max(0, my));
+        player.x = mx; player.y = my;
+    });
+    canvas.addEventListener('touchstart', (e) => { e.preventDefault(); handleShoot(e); });
+    canvas.addEventListener('touchmove', (e) => {
+        e.preventDefault();
+        if (gameOver) return;
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = W/rect.width, scaleY = H/rect.height;
+        const t = e.touches[0];
+        let mx = (t.clientX - rect.left)*scaleX;
+        let my = (t.clientY - rect.top)*scaleY;
+        mx = Math.min(W, Math.max(0, mx));
+        my = Math.min(H, Math.max(0, my));
+        player.x = mx; player.y = my;
+    }, { passive: false });
+    document.getElementById('restartBtn').addEventListener('click', restartGame);
+
+    // ---- START ----
+    restartGame();
+    gameLoop();
+    console.log('👻 NIGHT SHOOTER 👻');
+</script>
+</body>
+</html>
