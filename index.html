@@ -33,8 +33,7 @@
 
 <script>
     // ============================================================
-    //  NIGHT SHOOTER — PJSK STYLE (Cepat dari awal)
-    //  Seperti Project Sekai: ritme padat, intens sejak detik 1
+    //  NIGHT SHOOTER — Kecepatan & Getaran Lebih Santai
     // ============================================================
 
     const canvas = document.getElementById('gameCanvas');
@@ -50,30 +49,27 @@
     const player = { x: 450, y: 550, radius: 12 };
     let enemies = [], particles = [], bullets = [];
 
-    // ---- PARAMETER CEPAT DARI AWAL ----
+    // ---- PARAMETER LEBIH SANTAI ----
     function getSpawnDelay() {
-        // Mulai cepat (18) → makin cepat sampai 4
-        return Math.max(4, 18 - level * 1.2);
+        // Awal 28 → makin cepat sampai 8
+        return Math.max(8, 28 - level * 1.2);
     }
 
     function getEnemySpeed() {
-        // Mulai cepat (2.0) → makin cepat sampai 8.0
-        return Math.min(8.0, 2.0 + level * 0.45);
+        // Awal 1.0 → makin cepat sampai 4.0 (lebih pelan)
+        return Math.min(4.0, 1.0 + level * 0.2);
     }
 
     function getMaxEnemies() {
-        // Mulai banyak (10) → makin banyak sampai 45
-        return Math.min(45, 10 + level * 3);
+        return Math.min(25, 6 + level * 2);
     }
 
     function getBulletSpeed() {
-        // Peluru juga cepat dari awal
-        return Math.min(22, 14 + level * 0.5);
+        return Math.min(18, 12 + level * 0.4);
     }
 
     function getSpawnExtraChance() {
-        // Chance spawn tambahan tinggi dari awal
-        return Math.min(0.7, 0.15 + level * 0.04);
+        return Math.min(0.4, 0.08 + level * 0.025);
     }
 
     // ---- BACKGROUND (CACHE) ----
@@ -142,7 +138,6 @@
         ctx.fillText('Innalillahi', 450, 22);
         ctx.textAlign = 'left';
 
-        // Indikator kesulitan
         ctx.fillStyle = 'rgba(255, 200, 150, 0.2)';
         ctx.font = '12px monospace';
         ctx.fillText(`⚡ ${Math.round(getEnemySpeed()*10)/10}`, 20, 580);
@@ -192,11 +187,11 @@
         mx = Math.min(W, Math.max(0, mx));
         my = Math.min(H, Math.max(0, my));
         player.x = mx; player.y = my;
-        screenShake = 6;
+        screenShake = 3; // Dikurangi dari 6
 
-        for (let i=0; i<12; i++) {
+        for (let i=0; i<10; i++) {
             const a = Math.random()*2*Math.PI;
-            const d = 4 + Math.random()*16;
+            const d = 4 + Math.random()*14;
             particles.push({
                 x: mx, y: my,
                 vx: Math.cos(a)*d*0.5,
@@ -221,22 +216,22 @@
             const e = enemies[i];
             const dist = Math.hypot(mx - e.x, my - e.y);
             if (dist < e.radius * 0.6 + 14) {
-                for (let j=0; j<20; j++) {
+                for (let j=0; j<18; j++) {
                     const a = Math.random()*2*Math.PI;
-                    const s = 2 + Math.random()*7;
+                    const s = 2 + Math.random()*6;
                     particles.push({
                         x: e.x, y: e.y,
                         vx: Math.cos(a)*s,
                         vy: Math.sin(a)*s - 0.5,
                         life: 1,
                         decay: 0.02 + Math.random()*0.025,
-                        radius: 3 + Math.random()*8,
+                        radius: 3 + Math.random()*7,
                         color: `hsla(200, 80%, 70%, 0.7)`,
                     });
                 }
                 enemies.splice(i,1);
                 score++;
-                const newLevel = Math.floor(score/6) + 1; // Level up lebih cepat
+                const newLevel = Math.floor(score/8) + 1;
                 if (newLevel > level) {
                     level = newLevel;
                 }
@@ -253,7 +248,7 @@
     }
 
     function restartGame() {
-        score=0; health=5; level=1; gameOver=false;
+        score=0; health=7; level=1; gameOver=false;
         enemies=[]; particles=[]; bullets=[];
         player.x=450; player.y=550; screenShake=0;
         updateUI();
@@ -271,11 +266,9 @@
         if (spawnCounter >= spawnDelay) {
             spawnCounter = 0;
             spawnEnemy();
-            // Spawn tambahan agresif dari awal
             if (Math.random() < extraChance) spawnEnemy();
-            if (level > 2 && Math.random() < extraChance * 0.8) spawnEnemy();
-            if (level > 5 && Math.random() < extraChance * 0.6) spawnEnemy();
-            if (level > 10 && Math.random() < extraChance * 0.4) spawnEnemy();
+            if (level > 3 && Math.random() < extraChance * 0.7) spawnEnemy();
+            if (level > 7 && Math.random() < extraChance * 0.5) spawnEnemy();
         }
 
         // ---- GERAKKAN MUSUH ----
@@ -290,17 +283,17 @@
             if (e.y <= 30) {
                 health--;
                 updateUI();
-                screenShake = 15;
-                for (let j=0; j<20; j++) {
+                screenShake = 6; // Dikurangi dari 15
+                for (let j=0; j<15; j++) {
                     const a = Math.random()*2*Math.PI;
-                    const s = 2 + Math.random()*6;
+                    const s = 2 + Math.random()*5;
                     particles.push({
                         x: e.x, y: 15,
                         vx: Math.cos(a)*s,
                         vy: Math.sin(a)*s * 0.5,
                         life: 1,
                         decay: 0.02 + Math.random()*0.025,
-                        radius: 3 + Math.random()*7,
+                        radius: 3 + Math.random()*6,
                         color: `hsla(0, 90%, 50%, 0.8)`,
                     });
                 }
@@ -308,6 +301,7 @@
                 if (health <= 0) {
                     health = 0;
                     gameOver = true;
+                    screenShake = 4; // Dikurangi dari 20+
                     updateUI();
                 }
                 continue;
@@ -347,34 +341,39 @@
         }
         if (particles.length > 300) particles.splice(0, particles.length - 300);
 
-        if (screenShake > 0) screenShake *= 0.9;
+        // ---- SCREEN SHAKE (REDUKSI) ----
+        if (screenShake > 0) screenShake *= 0.92; // Lebih cepat redam
         if (screenShake < 0.1) screenShake = 0;
     }
 
     // ---- DRAW ----
     function draw() {
         ctx.save();
-        if (screenShake > 0.5) {
-            ctx.translate((Math.random()-0.5)*screenShake*1.5, (Math.random()-0.5)*screenShake*1.5);
+        // Shake lebih halus
+        if (screenShake > 0.3) {
+            const intensity = screenShake * 0.6;
+            ctx.translate(
+                (Math.random() - 0.5) * intensity,
+                (Math.random() - 0.5) * intensity
+            );
         }
 
         drawBackground();
 
         // Bullet
         for (const b of bullets) {
-            ctx.shadowBlur = 30;
+            ctx.shadowBlur = 25;
             ctx.shadowColor = '#ffaa44';
             ctx.fillStyle = '#ffdd77';
             ctx.beginPath();
             ctx.arc(b.x, b.y, b.radius * b.life, 0, Math.PI*2);
             ctx.fill();
-            // Glow
-            const grad = ctx.createRadialGradient(b.x, b.y, 2, b.x, b.y, 20);
-            grad.addColorStop(0, 'rgba(255, 220, 100, 0.2)');
+            const grad = ctx.createRadialGradient(b.x, b.y, 2, b.x, b.y, 18);
+            grad.addColorStop(0, 'rgba(255, 220, 100, 0.15)');
             grad.addColorStop(1, 'rgba(255, 220, 100, 0)');
             ctx.fillStyle = grad;
             ctx.beginPath();
-            ctx.arc(b.x, b.y, 20, 0, Math.PI*2);
+            ctx.arc(b.x, b.y, 18, 0, Math.PI*2);
             ctx.fill();
             ctx.shadowBlur = 0;
         }
@@ -382,7 +381,7 @@
         // Partikel
         for (const p of particles) {
             ctx.globalAlpha = p.life * 0.9;
-            ctx.shadowBlur = 12;
+            ctx.shadowBlur = 10;
             ctx.shadowColor = '#ff6633';
             ctx.beginPath();
             ctx.arc(p.x, p.y, p.radius * p.life, 0, Math.PI*2);
@@ -395,68 +394,68 @@
         // Musuh
         for (const e of enemies) {
             const r = e.radius;
-            const grad = ctx.createRadialGradient(e.x, e.y, 2, e.x, e.y, r*1.8);
-            grad.addColorStop(0, `hsla(210, 70%, 70%, ${e.alpha*0.35})`);
+            const grad = ctx.createRadialGradient(e.x, e.y, 2, e.x, e.y, r*1.6);
+            grad.addColorStop(0, `hsla(210, 70%, 70%, ${e.alpha*0.3})`);
             grad.addColorStop(1, 'rgba(0,0,0,0)');
             ctx.fillStyle = grad;
             ctx.beginPath();
-            ctx.arc(e.x, e.y, r*1.8, 0, Math.PI*2);
+            ctx.arc(e.x, e.y, r*1.6, 0, Math.PI*2);
             ctx.fill();
 
-            ctx.shadowBlur = 30;
-            ctx.shadowColor = 'rgba(100,150,255,0.5)';
-            ctx.fillStyle = `hsla(210, 70%, 70%, ${e.alpha*0.55})`;
+            ctx.shadowBlur = 25;
+            ctx.shadowColor = 'rgba(100,150,255,0.4)';
+            ctx.fillStyle = `hsla(210, 70%, 70%, ${e.alpha*0.5})`;
             ctx.beginPath();
             ctx.arc(e.x, e.y, r, 0, Math.PI*2);
             ctx.fill();
 
-            ctx.fillStyle = `hsla(210, 70%, 70%, ${e.alpha*0.4})`;
-            ctx.shadowBlur = 20;
+            ctx.fillStyle = `hsla(210, 70%, 70%, ${e.alpha*0.35})`;
+            ctx.shadowBlur = 15;
             ctx.beginPath();
-            ctx.moveTo(e.x - r*0.45, e.y - r*0.35);
-            for (let t=0; t<=1; t+=0.04) {
-                const waveX = e.x + Math.sin(t*9 + frame*0.05 + e.phase) * r*0.3;
-                const waveY = e.y - r*0.35 - t*r*0.55;
+            ctx.moveTo(e.x - r*0.4, e.y - r*0.3);
+            for (let t=0; t<=1; t+=0.05) {
+                const waveX = e.x + Math.sin(t*8 + frame*0.04 + e.phase) * r*0.25;
+                const waveY = e.y - r*0.3 - t*r*0.5;
                 ctx.lineTo(waveX, waveY);
             }
-            ctx.lineTo(e.x + r*0.45, e.y - r*0.35);
+            ctx.lineTo(e.x + r*0.4, e.y - r*0.3);
             ctx.closePath();
             ctx.fill();
 
-            ctx.shadowBlur = 25;
+            ctx.shadowBlur = 20;
             ctx.shadowColor = '#ff3333';
             ctx.fillStyle = '#ff1a1a';
             ctx.beginPath();
-            ctx.arc(e.x - r*0.3, e.y - r*0.1, r*0.17, 0, Math.PI*2);
+            ctx.arc(e.x - r*0.3, e.y - r*0.1, r*0.16, 0, Math.PI*2);
             ctx.fill();
             ctx.beginPath();
-            ctx.arc(e.x + r*0.3, e.y - r*0.1, r*0.17, 0, Math.PI*2);
+            ctx.arc(e.x + r*0.3, e.y - r*0.1, r*0.16, 0, Math.PI*2);
             ctx.fill();
             ctx.shadowBlur = 0;
         }
 
         // Player (Crosshair)
         const px=player.x, py=player.y;
-        ctx.shadowBlur = 30;
+        ctx.shadowBlur = 25;
         ctx.shadowColor = '#ff4400';
         ctx.strokeStyle = 'rgba(255,200,150,0.85)';
-        ctx.lineWidth = 2.5;
+        ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.arc(px, py, player.radius+7, 0, Math.PI*2);
+        ctx.arc(px, py, player.radius+6, 0, Math.PI*2);
         ctx.stroke();
-        ctx.shadowBlur = 20;
+        ctx.shadowBlur = 15;
         ctx.strokeStyle = 'rgba(255,200,150,0.95)';
-        ctx.lineWidth = 3;
-        const s = 18;
+        ctx.lineWidth = 2.5;
+        const s = 16;
         ctx.beginPath();
         ctx.moveTo(px-s, py); ctx.lineTo(px+s, py);
         ctx.moveTo(px, py-s); ctx.lineTo(px, py+s);
         ctx.stroke();
-        ctx.shadowBlur = 35;
+        ctx.shadowBlur = 30;
         ctx.shadowColor = '#ff2200';
         ctx.fillStyle = '#ff3333';
         ctx.beginPath();
-        ctx.arc(px, py, 4.5, 0, Math.PI*2);
+        ctx.arc(px, py, 4, 0, Math.PI*2);
         ctx.fill();
         ctx.shadowBlur = 0;
 
@@ -525,7 +524,8 @@
     // ---- START ----
     restartGame();
     gameLoop();
-    console.log('👻 NIGHT SHOOTER || Pokoknya punya Jyo || 👻');
+    console.log('👻 NIGHT SHOOTER || Punya Jyo || 👻');
+    console.log(':3');
     console.log(':P');
     console.log('Well well well');
 </script>
