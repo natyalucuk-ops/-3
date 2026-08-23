@@ -121,9 +121,9 @@
 
         ctx.font = 'bold 20px monospace';
         ctx.fillStyle = '#5a4a3a'; ctx.globalAlpha = 0.5;
-        ctx.fillText('42NDST.', 780, 40);
+        ctx.fillText('Kenapa Nyak?', 780, 40);
         ctx.font = '11px monospace';
-        ctx.fillText('@gbergphoto', 820, 58);
+        ctx.fillText('J.V.A', 820, 58);
         ctx.globalAlpha = 1;
 
         ctx.strokeStyle = 'rgba(255, 50, 50, 0.4)';
@@ -236,7 +236,7 @@
                 }
                 enemies.splice(i,1);
                 score++;
-                const newLevel = Math.floor(score/6) + 1; // Level up lebih cepat
+                const newLevel = Math.floor(score/5) + 1; // Level up lebih cepat
                 if (newLevel > level) {
                     level = newLevel;
                 }
@@ -253,7 +253,7 @@
     }
 
     function restartGame() {
-        score=0; health=5; level=1; gameOver=false;
+        score=0; health=7; level=1; gameOver=false;
         enemies=[]; particles=[]; bullets=[];
         player.x=450; player.y=550; screenShake=0;
         updateUI();
