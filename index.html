@@ -25,7 +25,6 @@
         .bomb-btn.hidden { display: none; }
         @keyframes pulse { 0%, 100% { box-shadow: 0 0 10px rgba(255, 100, 0, 0.3); } 50% { box-shadow: 0 0 30px rgba(255, 100, 0, 0.6); } }
 
-        /* ---- TOMBOL START ---- */
         #startOverlay {
             position: absolute;
             top: 0; left: 0;
@@ -87,7 +86,6 @@
 </head>
 <body>
 <div class="game-wrapper" id="gameWrapper">
-    <!-- OVERLAY START -->
     <div id="startOverlay">
         <h1>👻 NIGHT SHOOTER</h1>
         <p>Punya Jyo, jangan diambil 😡</p>
@@ -107,12 +105,14 @@
 
 <script>
     // ============================================================
-    //  NIGHT SHOOTER — FIX: Musuh Muncul + Health 7
+    //  NIGHT SHOOTER — FIX: Musuh Muncul + Zona Mati Jelas
     // ============================================================
 
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     const W = 900, H = 600;
+    const ZONA_MATI = 35;
+
     const scoreSpan = document.getElementById('scoreDisplay');
     const healthSpan = document.getElementById('healthDisplay');
     const levelSpan = document.getElementById('levelDisplay');
@@ -122,25 +122,22 @@
     const startOverlay = document.getElementById('startOverlay');
     const startBtn = document.getElementById('startBtn');
 
-    // ---- GAME STATE ----
+    // ---- STATE ----
     let gameStarted = false;
     let score = 0, health = 7, level = 1, gameOver = false;
     let spawnCounter = 0, screenShake = 0, frame = 0;
     const player = { x: 450, y: 550, radius: 12 };
     let enemies = [], particles = [], bullets = [];
 
-    // ---- AUTO-FIRE ----
     let isShooting = false;
     let shootTimer = 0;
     const SHOOT_DELAY = 6;
 
-    // ---- EVENT STATE ----
     let bombReady = true;
     let bombCooldown = 0;
     let bombActive = false;
     let freezeActive = false;
 
-    // ---- HIGHSCORE ----
     let highscore = parseInt(localStorage.getItem('nightShooterHighscore')) || 0;
     highscoreSpan.textContent = highscore;
 
@@ -213,22 +210,24 @@
         ctx.fillText('J.V.A', 820, 58);
         ctx.globalAlpha = 1;
 
-        ctx.strokeStyle = 'rgba(255, 50, 50, 0.4)';
-        ctx.lineWidth = 2;
-        ctx.setLineDash([10, 15]);
+        // ---- ZONA MATI (GARIS MERAH) ----
+        ctx.strokeStyle = 'rgba(255, 50, 50, 0.6)';
+        ctx.lineWidth = 3;
+        ctx.setLineDash([12, 18]);
         ctx.beginPath();
-        ctx.moveTo(0, 30);
-        ctx.lineTo(W, 30);
+        ctx.moveTo(0, ZONA_MATI);
+        ctx.lineTo(W, ZONA_MATI);
         ctx.stroke();
         ctx.setLineDash([]);
-        ctx.fillStyle = 'rgba(255, 0, 0, 0.1)';
-        ctx.fillRect(0, 0, W, 30);
-        ctx.fillStyle = 'rgba(255, 50, 50, 0.5)';
-        ctx.font = '14px monospace';
+        ctx.fillStyle = 'rgba(255, 0, 0, 0.12)';
+        ctx.fillRect(0, 0, W, ZONA_MATI);
+        ctx.fillStyle = 'rgba(255, 50, 50, 0.6)';
+        ctx.font = 'bold 16px monospace';
         ctx.textAlign = 'center';
-        ctx.fillText('Apa nyak? Kok liat sini?😏', 450, 22);
+        ctx.fillText('☠️ ZONA MATI ☠️', 450, 22);
         ctx.textAlign = 'left';
 
+        // ---- INFO BAWAH ----
         ctx.fillStyle = 'rgba(255, 200, 150, 0.2)';
         ctx.font = '12px monospace';
         ctx.fillText(`⚡ ${Math.round(getEnemySpeed()*10)/10}`, 20, 580);
@@ -243,7 +242,7 @@
             ctx.fillStyle = '#66ccff';
             ctx.shadowBlur = 40;
             ctx.shadowColor = '#0088ff';
-            ctx.fillText('🥶DINGIN CUY', 450, 120);
+            ctx.fillText('🥶 DINGIN CUY', 450, 200);
             ctx.shadowBlur = 0;
             ctx.textAlign = 'left';
         }
@@ -256,14 +255,14 @@
         if (enemies.length >= maxEnemies) return;
 
         const x = 30 + Math.random() * (W - 60);
-        const y = H + 20 + Math.random() * 30;
+        const y = H + 20 + Math.random() * 30; // SPAWN DARI BAWAH
         const speed = getEnemySpeed() * (0.85 + Math.random() * 0.3);
         const angle = -Math.PI/2 + (Math.random() - 0.5) * 0.5;
 
         enemies.push({
             x, y,
             vx: Math.cos(angle) * speed * 0.3,
-            vy: Math.sin(angle) * speed,
+            vy: Math.sin(angle) * speed, // NEGATIF = KE ATAS
             radius: 16 + Math.random() * 10,
             phase: Math.random() * Math.PI * 2,
             floatAmp: 0.2 + Math.random() * 0.3,
@@ -281,7 +280,7 @@
         bombActive = true;
         bombBtn.disabled = true;
         bombBtn.textContent = 'DUAR!';
-        eventSpan.textContent = '🤯SHEEESSHH! x2 POIN';
+        eventSpan.textContent = '🤯 SHEEESSHH! x2 POIN';
         eventSpan.style.color = '#ff8833';
         screenShake = 8;
 
@@ -477,6 +476,7 @@
         freezeActive = false;
         isShooting = false;
         shootTimer = 0;
+        spawnCounter = 0;
         bombBtn.disabled = false;
         bombBtn.textContent = '☣︎ BOMB';
         eventSpan.textContent = '-';
@@ -489,15 +489,14 @@
         gameStarted = true;
         startOverlay.classList.add('hidden');
         bombBtn.classList.remove('hidden');
-        // SET SPAWN COUNTER AGAR MUSUH LANGSUNG MUNCUL
-        spawnCounter = 999;
+        spawnCounter = 999; // BIAR LANGSUNG MUNCUL
         restartGame();
-        // Mulai loop game kalau belum jalan
         if (!window._gameLoopStarted) {
             window._gameLoopStarted = true;
             gameLoop();
         }
-        console.log('🔥 GAME DIMULAI! Musuh akan segera muncul...');
+        console.log('🔥 GAME DIMULAI! Musuh dari bawah → ke atas!');
+        console.log('☠️ ZONA MATI di y = ' + ZONA_MATI);
     }
 
     startBtn.addEventListener('click', startGame);
@@ -540,26 +539,28 @@
             if (level > 4 && Math.random() < extraChance * 0.6) spawnEnemy();
         }
 
+        // ---- GERAKAN MUSUH (KE ATAS) ----
         for (let i=enemies.length-1; i>=0; i--) {
             const e = enemies[i];
             e.x += e.vx + Math.sin(frame * 0.04 + e.phase) * e.wiggle * 0.6;
             e.y += e.vy;
             e.x += Math.sin(frame * 0.025 * e.floatSpeed + e.phase) * e.floatAmp * 0.15;
 
-            if (e.y <= 30) {
+            // ---- ZONA MATI: e.y <= ZONA_MATI ----
+            if (e.y <= ZONA_MATI) {
                 health--;
                 updateUI();
-                screenShake = 4;
-                for (let j=0; j<15; j++) {
+                screenShake = 6;
+                for (let j=0; j<20; j++) {
                     const a = Math.random()*2*Math.PI;
-                    const s = 2 + Math.random()*4;
+                    const s = 2 + Math.random()*5;
                     particles.push({
-                        x: e.x, y: 15,
+                        x: e.x, y: ZONA_MATI,
                         vx: Math.cos(a)*s,
                         vy: Math.sin(a)*s * 0.5,
                         life: 1,
                         decay: 0.02 + Math.random()*0.025,
-                        radius: 3 + Math.random()*5,
+                        radius: 3 + Math.random()*6,
                         color: `hsla(0, 90%, 50%, 0.8)`,
                     });
                 }
@@ -567,12 +568,13 @@
                 if (health <= 0) {
                     health = 0;
                     gameOver = true;
-                    screenShake = 6;
+                    screenShake = 8;
                     updateUI();
                 }
                 continue;
             }
 
+            // Respawn kalau keluar samping
             if (e.x < -80 || e.x > W + 80) {
                 e.x = 30 + Math.random() * (W - 60);
                 e.y = H + 20 + Math.random() * 30;
@@ -825,8 +827,8 @@
     });
     bombBtn.addEventListener('click', triggerBomb);
 
-    // ---- START ----
     console.log('👻 NIGHT SHOOTER || Tekan GASS untuk mulai || 👻');
+    console.log('😔 Moga husnul khatimah' + 😔 Innalillahi);
     console.log('Well well well');
 </script>
 </body>
