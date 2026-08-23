@@ -99,7 +99,7 @@
         <div class="ui-box">★ SCORE <span id="scoreDisplay">0</span></div>
         <div class="ui-box">♕ HIGHSCORE <span id="highscoreDisplay">0</span></div>
         <div class="ui-box">❯❯❯ LEVEL <span id="levelDisplay">1</span></div>
-        <div class="ui-box">⛨ HEALTH <span id="healthDisplay">5</span></div>
+        <div class="ui-box">⛨ HEALTH <span id="healthDisplay">7</span></div>
         <button class="bomb-btn hidden" id="bombBtn">☣︎ BOMB</button>
         <button class="restart-btn" id="restartBtn">↻ RESPAWN</button>
     </div>
@@ -107,7 +107,7 @@
 
 <script>
     // ============================================================
-    //  NIGHT SHOOTER — Dengan Tombol START
+    //  NIGHT SHOOTER — FIX: Musuh Muncul + Health 7
     // ============================================================
 
     const canvas = document.getElementById('gameCanvas');
@@ -124,7 +124,7 @@
 
     // ---- GAME STATE ----
     let gameStarted = false;
-    let score = 0, health = 5, level = 1, gameOver = false;
+    let score = 0, health = 7, level = 1, gameOver = false;
     let spawnCounter = 0, screenShake = 0, frame = 0;
     const player = { x: 450, y: 550, radius: 12 };
     let enemies = [], particles = [], bullets = [];
@@ -469,7 +469,7 @@
     }
 
     function restartGame() {
-        score=0; health=5; level=1; gameOver=false;
+        score=0; health=7; level=1; gameOver=false;
         enemies=[]; particles=[]; bullets=[];
         player.x=450; player.y=550; screenShake=0;
         bombReady = true;
@@ -489,12 +489,15 @@
         gameStarted = true;
         startOverlay.classList.add('hidden');
         bombBtn.classList.remove('hidden');
+        // SET SPAWN COUNTER AGAR MUSUH LANGSUNG MUNCUL
+        spawnCounter = 999;
         restartGame();
         // Mulai loop game kalau belum jalan
         if (!window._gameLoopStarted) {
             window._gameLoopStarted = true;
             gameLoop();
         }
+        console.log('🔥 GAME DIMULAI! Musuh akan segera muncul...');
     }
 
     startBtn.addEventListener('click', startGame);
@@ -822,9 +825,9 @@
     });
     bombBtn.addEventListener('click', triggerBomb);
 
-    // ---- START LOOP ----
-    // Loop akan dimulai saat tombol START diklik
+    // ---- START ----
     console.log('👻 NIGHT SHOOTER || Tekan GASS untuk mulai || 👻');
+    console.log('Well well well');
 </script>
 </body>
 </html>
