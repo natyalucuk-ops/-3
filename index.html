@@ -7,7 +7,7 @@
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
         body { min-height: 100vh; background: #0a0808; display: flex; justify-content: center; align-items: center; font-family: 'Courier New', monospace; }
-        .game-wrapper { background: #0f0c0a; padding: 18px; border-radius: 28px; border: 1px solid #3a2a1a; box-shadow: 0 0 60px rgba(200,80,30,0.25); position: relative; }
+        .game-wrapper { background: #0f0c0a; padding: 18px; border-radius: 28px; border: 1px solid #3a2a1a; box-shadow: 0 0 60px rgba(200,80,30,0.25); }
         #gameCanvas { display: block; width: 900px; height: 600px; border-radius: 18px; cursor: none; background: #1a100c; }
         .ui-bar { display: flex; justify-content: space-between; align-items: center; margin-top: 14px; padding: 0 8px; color: #c0a898; font-weight: bold; font-size: 17px; flex-wrap: wrap; gap: 8px; }
         .ui-box { background: rgba(10,6,4,0.85); padding: 6px 22px; border-radius: 40px; border: 1px solid #3a2a1a; }
@@ -22,91 +22,27 @@
         .bomb-btn { background: #4a1a0a; border: 2px solid #ff6633; color: #ff8844; padding: 6px 20px; border-radius: 40px; font-family: 'Courier New', monospace; font-weight: bold; font-size: 16px; cursor: pointer; transition: 0.25s; animation: pulse 1s infinite; }
         .bomb-btn:hover { background: #6a2a1a; color: #ffaa66; border-color: #ff8844; transform: scale(1.05); }
         .bomb-btn:disabled { opacity: 0.4; cursor: not-allowed; animation: none; }
-        .bomb-btn.hidden { display: none; }
         @keyframes pulse { 0%, 100% { box-shadow: 0 0 10px rgba(255, 100, 0, 0.3); } 50% { box-shadow: 0 0 30px rgba(255, 100, 0, 0.6); } }
-
-        #startOverlay {
-            position: absolute;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            background: rgba(0,0,0,0.85);
-            border-radius: 28px;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 10;
-            backdrop-filter: blur(4px);
-            transition: opacity 0.5s ease;
-        }
-        #startOverlay.hidden {
-            opacity: 0;
-            pointer-events: none;
-        }
-        #startOverlay h1 {
-            font-size: 48px;
-            color: #ff8844;
-            text-shadow: 0 0 40px rgba(255, 100, 0, 0.4);
-            margin-bottom: 10px;
-        }
-        #startOverlay p {
-            font-size: 18px;
-            color: #aa8877;
-            margin-bottom: 30px;
-        }
-        #startBtn {
-            background: #4a1a0a;
-            border: 2px solid #ff6633;
-            color: #ff8844;
-            padding: 16px 50px;
-            border-radius: 50px;
-            font-family: 'Courier New', monospace;
-            font-weight: bold;
-            font-size: 28px;
-            cursor: pointer;
-            transition: 0.3s;
-            box-shadow: 0 0 40px rgba(255, 100, 0, 0.2);
-        }
-        #startBtn:hover {
-            background: #6a2a1a;
-            color: #ffaa66;
-            border-color: #ff8844;
-            transform: scale(1.08);
-            box-shadow: 0 0 60px rgba(255, 100, 0, 0.4);
-        }
-
-        @media (max-width: 960px) {
-            .game-wrapper { padding: 10px; }
-            #gameCanvas { width: 100%; height: auto; aspect-ratio: 900/600; }
-            .ui-bar { font-size: 13px; justify-content: center; }
-            #startOverlay h1 { font-size: 32px; }
-            #startBtn { font-size: 20px; padding: 12px 30px; }
-        }
+        @media (max-width: 960px) { .game-wrapper { padding: 10px; } #gameCanvas { width: 100%; height: auto; aspect-ratio: 900/600; } .ui-bar { font-size: 13px; justify-content: center; } }
     </style>
 </head>
 <body>
-<div class="game-wrapper" id="gameWrapper">
-    <div id="startOverlay">
-        <h1>👻 NIGHT SHOOTER</h1>
-        <p>Punya Jyo, jangan diambil 😡</p>
-        <button id="startBtn">▶ GASS</button>
-    </div>
-
+<div class="game-wrapper">
     <canvas id="gameCanvas" width="900" height="600"></canvas>
     <div class="ui-bar">
         <div class="ui-box">★ SCORE <span id="scoreDisplay">0</span></div>
         <div class="ui-box">♕ HIGHSCORE <span id="highscoreDisplay">0</span></div>
         <div class="ui-box">❯❯❯ LEVEL <span id="levelDisplay">1</span></div>
         <div class="ui-box">⛨ HEALTH <span id="healthDisplay">7</span></div>
-        <button class="bomb-btn hidden" id="bombBtn">☣︎ BOMB</button>
+        <button class="bomb-btn" id="bombBtn">☣︎ BOMB</button>
         <button class="restart-btn" id="restartBtn">↻ RESPAWN</button>
     </div>
 </div>
 
 <script>
     // ============================================================
-    //  NIGHT SHOOTER — VERSI YANG BAGUS (KEMBALI KE AWAL)
-    //  + Tombol START + Health 7
+    //  NIGHT SHOOTER — VERSI AWAL YANG BAGUS (LANGSUNG MAIN)
+    //  Health 7, BOMB, FREEZE, HIGHSCORE
     // ============================================================
 
     const canvas = document.getElementById('gameCanvas');
@@ -118,11 +54,10 @@
     const highscoreSpan = document.getElementById('highscoreDisplay');
     const eventSpan = document.getElementById('eventDisplay');
     const bombBtn = document.getElementById('bombBtn');
-    const startOverlay = document.getElementById('startOverlay');
-    const startBtn = document.getElementById('startBtn');
 
-    // ---- STATE ----
-    let gameStarted = false;
+    let highscore = parseInt(localStorage.getItem('nightShooterHighscore')) || 0;
+    highscoreSpan.textContent = highscore;
+
     let score = 0, health = 7, level = 1, gameOver = false;
     let spawnCounter = 0, screenShake = 0, frame = 0;
     const player = { x: 450, y: 550, radius: 12 };
@@ -137,10 +72,6 @@
     let bombActive = false;
     let freezeActive = false;
 
-    let highscore = parseInt(localStorage.getItem('nightShooterHighscore')) || 0;
-    highscoreSpan.textContent = highscore;
-
-    // ---- PARAMETER ----
     function getSpawnDelay() {
         if (freezeActive) return Math.max(4, 28 - level * 1.0) * 8;
         return Math.max(4, 28 - level * 1.0);
@@ -159,7 +90,6 @@
         return Math.min(0.5, 0.08 + level * 0.03);
     }
 
-    // ---- BACKGROUND ----
     const buildings = [
         [10,55,280],[70,40,340],[115,60,210],[180,45,380],[230,55,260],
         [290,40,400],[335,65,190],[405,50,350],[460,40,420],[505,55,280],
@@ -245,9 +175,8 @@
         }
     }
 
-    // ---- SPAWN MUSUH ----
     function spawnEnemy() {
-        if (gameOver || !gameStarted) return;
+        if (gameOver) return;
         const maxEnemies = getMaxEnemies();
         if (enemies.length >= maxEnemies) return;
 
@@ -269,9 +198,8 @@
         });
     }
 
-    // ---- BOM ----
     function triggerBomb() {
-        if (!bombReady || gameOver || enemies.length === 0 || !gameStarted) return;
+        if (!bombReady || gameOver || enemies.length === 0) return;
         bombReady = false;
         bombCooldown = 0;
         bombActive = true;
@@ -354,9 +282,8 @@
         }, 3000);
     }
 
-    // ---- FREEZE ----
     function triggerFreeze() {
-        if (freezeActive || gameOver || !gameStarted) return;
+        if (freezeActive || gameOver) return;
         freezeActive = true;
         eventSpan.textContent = '❄️🥶!';
         eventSpan.style.color = '#66ccff';
@@ -383,9 +310,8 @@
         }, 3000);
     }
 
-    // ---- TEMBAK ----
     function shoot() {
-        if (gameOver || !gameStarted) return;
+        if (gameOver) return;
         const mx = player.x, my = player.y;
         screenShake = 1.5;
 
@@ -473,7 +399,6 @@
         freezeActive = false;
         isShooting = false;
         shootTimer = 0;
-        spawnCounter = 0;
         bombBtn.disabled = false;
         bombBtn.textContent = '☣︎ BOMB';
         eventSpan.textContent = '-';
@@ -481,26 +406,9 @@
         updateUI();
     }
 
-    // ---- START GAME ----
-    function startGame() {
-        gameStarted = true;
-        startOverlay.classList.add('hidden');
-        bombBtn.classList.remove('hidden');
-        spawnCounter = 999;
-        restartGame();
-        if (!window._gameLoopStarted) {
-            window._gameLoopStarted = true;
-            gameLoop();
-        }
-        console.log('🔥 GAME DIMULAI!');
-    }
-
-    startBtn.addEventListener('click', startGame);
-
-    // ---- UPDATE ----
     function update() {
         frame++;
-        if (gameOver || !gameStarted) return;
+        if (gameOver) return;
 
         if (isShooting) {
             shootTimer++;
@@ -603,7 +511,6 @@
         if (screenShake < 0.2) screenShake = 0;
     }
 
-    // ---- DRAW ----
     function draw() {
         ctx.save();
         if (screenShake > 0.3) {
@@ -711,7 +618,7 @@
         ctx.fill();
         ctx.shadowBlur = 0;
 
-        if (isShooting && !gameOver && gameStarted) {
+        if (isShooting && !gameOver) {
             ctx.fillStyle = 'rgba(255, 200, 100, 0.3)';
             ctx.font = '14px monospace';
             ctx.textAlign = 'center';
@@ -743,7 +650,6 @@
         ctx.restore();
     }
 
-    // ---- LOOP ----
     function gameLoop() {
         update();
         draw();
@@ -752,7 +658,7 @@
 
     // ---- EVENTS ----
     canvas.addEventListener('mousedown', (e) => {
-        if (gameOver || !gameStarted) return;
+        if (gameOver) return;
         isShooting = true;
         const rect = canvas.getBoundingClientRect();
         const scaleX = W/rect.width;
@@ -769,7 +675,7 @@
     canvas.addEventListener('mouseleave', () => { isShooting = false; });
 
     canvas.addEventListener('mousemove', (e) => {
-        if (gameOver || !gameStarted) return;
+        if (gameOver) return;
         const rect = canvas.getBoundingClientRect();
         const scaleX = W/rect.width;
         const scaleY = H/rect.height;
@@ -783,7 +689,7 @@
 
     canvas.addEventListener('touchstart', (e) => {
         e.preventDefault();
-        if (gameOver || !gameStarted) return;
+        if (gameOver) return;
         isShooting = true;
         const rect = canvas.getBoundingClientRect();
         const scaleX = W/rect.width;
@@ -801,7 +707,7 @@
     canvas.addEventListener('touchcancel', (e) => { e.preventDefault(); isShooting = false; });
     canvas.addEventListener('touchmove', (e) => {
         e.preventDefault();
-        if (gameOver || !gameStarted) return;
+        if (gameOver) return;
         const rect = canvas.getBoundingClientRect();
         const scaleX = W/rect.width;
         const scaleY = H/rect.height;
@@ -814,13 +720,16 @@
         player.y = my;
     }, { passive: false });
 
-    document.getElementById('restartBtn').addEventListener('click', () => {
-        if (!gameStarted) return;
-        restartGame();
-    });
+    document.getElementById('restartBtn').addEventListener('click', restartGame);
     bombBtn.addEventListener('click', triggerBomb);
 
-    console.log('👻 NIGHT SHOOTER || Tekan GASS untuk mulai || 👻');
+    // ---- START ----
+    restartGame();
+    gameLoop();
+    console.log('👻 NIGHT SHOOTER || PUNYA JYO || 👻');
+    console.log('<3 RCV');
+    console.log('Heh😏');
+    console.log('Well well well');
 </script>
 </body>
 </html>
