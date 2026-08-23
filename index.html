@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Punya Jyo jangan diambil😡</title>
+    <title>Punya Jyo, jangan diambil😡</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
         body { min-height: 100vh; background: #0a0808; display: flex; justify-content: center; align-items: center; font-family: 'Courier New', monospace; }
@@ -24,17 +24,17 @@
 <div class="game-wrapper">
     <canvas id="gameCanvas" width="900" height="600"></canvas>
     <div class="ui-bar">
-        <div class="ui-box">☆ SCORE <span id="scoreDisplay">0</span></div>
-        <div class="ui-box">❯❯❯❯ LEVEL <span id="levelDisplay">1</span></div>
-        <div class="ui-box">✙ HEALTH <span id="healthDisplay">5</span></div>
+        <div class="ui-box">★ SCORE <span id="scoreDisplay">0</span></div>
+        <div class="ui-box">❯❯❯ LEVEL <span id="levelDisplay">1</span></div>
+        <div class="ui-box">⛨ HEALTH <span id="healthDisplay">5</span></div>
         <button class="restart-btn" id="restartBtn">↻ RESPAWN</button>
     </div>
 </div>
 
 <script>
     // ============================================================
-    //  NIGHT SHOOTER — KESULITAN PROGRESIF
-    //  Awal lambat → makin lama makin cepat & banyak
+    //  NIGHT SHOOTER — PJSK STYLE (Cepat dari awal)
+    //  Seperti Project Sekai: ritme padat, intens sejak detik 1
     // ============================================================
 
     const canvas = document.getElementById('gameCanvas');
@@ -50,30 +50,30 @@
     const player = { x: 450, y: 550, radius: 12 };
     let enemies = [], particles = [], bullets = [];
 
-    // ---- PARAMETER DINAMIS (BERUBAH SESUAI LEVEL) ----
+    // ---- PARAMETER CEPAT DARI AWAL ----
     function getSpawnDelay() {
-        // Awal 55 → makin cepat sampai minimal 8
-        return Math.max(8, 55 - level * 3.5);
+        // Mulai cepat (18) → makin cepat sampai 4
+        return Math.max(4, 18 - level * 1.2);
     }
 
     function getEnemySpeed() {
-        // Awal 0.6 → makin cepat sampai maksimal 5.0
-        return Math.min(5.0, 0.6 + level * 0.35);
+        // Mulai cepat (2.0) → makin cepat sampai 8.0
+        return Math.min(8.0, 2.0 + level * 0.45);
     }
 
     function getMaxEnemies() {
-        // Awal 5 → makin banyak sampai maksimal 35
-        return Math.min(35, 5 + level * 3);
+        // Mulai banyak (10) → makin banyak sampai 45
+        return Math.min(45, 10 + level * 3);
     }
 
     function getBulletSpeed() {
-        // Peluru juga makin cepat agar tetap bisa menembak
-        return Math.min(18, 8 + level * 0.6);
+        // Peluru juga cepat dari awal
+        return Math.min(22, 14 + level * 0.5);
     }
 
     function getSpawnExtraChance() {
-        // Semakin tinggi level, semakin besar chance spawn tambahan
-        return Math.min(0.5, level * 0.035);
+        // Chance spawn tambahan tinggi dari awal
+        return Math.min(0.7, 0.15 + level * 0.04);
     }
 
     // ---- BACKGROUND (CACHE) ----
@@ -126,7 +126,7 @@
         ctx.fillText('@gbergphoto', 820, 58);
         ctx.globalAlpha = 1;
 
-        ctx.strokeStyle = 'rgba(255, 50, 50, 0.3)';
+        ctx.strokeStyle = 'rgba(255, 50, 50, 0.4)';
         ctx.lineWidth = 2;
         ctx.setLineDash([10, 15]);
         ctx.beginPath();
@@ -134,16 +134,16 @@
         ctx.lineTo(W, 30);
         ctx.stroke();
         ctx.setLineDash([]);
-        ctx.fillStyle = 'rgba(255, 0, 0, 0.07)';
+        ctx.fillStyle = 'rgba(255, 0, 0, 0.1)';
         ctx.fillRect(0, 0, W, 30);
-        ctx.fillStyle = 'rgba(255, 50, 50, 0.35)';
+        ctx.fillStyle = 'rgba(255, 50, 50, 0.5)';
         ctx.font = '14px monospace';
         ctx.textAlign = 'center';
-        ctx.fillText('⬆ ZONA MATI ⬆', 450, 22);
+        ctx.fillText('Apa nyak? Kok liat sini?😏', 450, 22);
         ctx.textAlign = 'left';
 
-        // ---- Indikator kesulitan ----
-        ctx.fillStyle = 'rgba(255, 200, 150, 0.15)';
+        // Indikator kesulitan
+        ctx.fillStyle = 'rgba(255, 200, 150, 0.2)';
         ctx.font = '12px monospace';
         ctx.fillText(`⚡ ${Math.round(getEnemySpeed()*10)/10}`, 20, 580);
         ctx.fillText(`👻 ${enemies.length}/${Math.round(getMaxEnemies())}`, 120, 580);
@@ -158,19 +158,19 @@
         const x = 30 + Math.random() * (W - 60);
         const y = H + 20 + Math.random() * 30;
 
-        const speed = getEnemySpeed() * (0.8 + Math.random() * 0.4);
-        const angle = -Math.PI/2 + (Math.random() - 0.5) * 0.4;
+        const speed = getEnemySpeed() * (0.85 + Math.random() * 0.3);
+        const angle = -Math.PI/2 + (Math.random() - 0.5) * 0.5;
 
         enemies.push({
             x, y,
-            vx: Math.cos(angle) * speed * 0.3,
+            vx: Math.cos(angle) * speed * 0.35,
             vy: Math.sin(angle) * speed,
-            radius: 18 + Math.random() * 10,
+            radius: 16 + Math.random() * 10,
             phase: Math.random() * Math.PI * 2,
             floatAmp: 0.2 + Math.random() * 0.3,
             floatSpeed: 1.5 + Math.random() * 1.5,
             alpha: 0.5 + Math.random() * 0.4,
-            wiggle: (Math.random() - 0.5) * 0.25,
+            wiggle: (Math.random() - 0.5) * 0.3,
         });
     }
 
@@ -192,15 +192,15 @@
         mx = Math.min(W, Math.max(0, mx));
         my = Math.min(H, Math.max(0, my));
         player.x = mx; player.y = my;
-        screenShake = 5;
+        screenShake = 6;
 
-        for (let i=0; i<10; i++) {
+        for (let i=0; i<12; i++) {
             const a = Math.random()*2*Math.PI;
-            const d = 4 + Math.random()*14;
+            const d = 4 + Math.random()*16;
             particles.push({
                 x: mx, y: my,
                 vx: Math.cos(a)*d*0.5,
-                vy: Math.sin(a)*d*0.5 - 0.6,
+                vy: Math.sin(a)*d*0.5 - 0.7,
                 life: 1,
                 decay: 0.03 + Math.random()*0.03,
                 radius: 2 + Math.random()*4,
@@ -213,30 +213,30 @@
             x: mx,
             y: my - 10,
             vy: -bulletSpeed,
-            radius: 5,
+            radius: 6,
             life: 1,
         });
 
         for (let i=enemies.length-1; i>=0; i--) {
             const e = enemies[i];
             const dist = Math.hypot(mx - e.x, my - e.y);
-            if (dist < e.radius * 0.6 + 12) {
-                for (let j=0; j<18; j++) {
+            if (dist < e.radius * 0.6 + 14) {
+                for (let j=0; j<20; j++) {
                     const a = Math.random()*2*Math.PI;
-                    const s = 2 + Math.random()*6;
+                    const s = 2 + Math.random()*7;
                     particles.push({
                         x: e.x, y: e.y,
                         vx: Math.cos(a)*s,
                         vy: Math.sin(a)*s - 0.5,
                         life: 1,
                         decay: 0.02 + Math.random()*0.025,
-                        radius: 3 + Math.random()*7,
+                        radius: 3 + Math.random()*8,
                         color: `hsla(200, 80%, 70%, 0.7)`,
                     });
                 }
                 enemies.splice(i,1);
                 score++;
-                const newLevel = Math.floor(score/8) + 1;
+                const newLevel = Math.floor(score/6) + 1; // Level up lebih cepat
                 if (newLevel > level) {
                     level = newLevel;
                 }
@@ -271,35 +271,36 @@
         if (spawnCounter >= spawnDelay) {
             spawnCounter = 0;
             spawnEnemy();
-            // Spawn tambahan sesuai level
+            // Spawn tambahan agresif dari awal
             if (Math.random() < extraChance) spawnEnemy();
-            if (level > 5 && Math.random() < extraChance * 0.7) spawnEnemy();
-            if (level > 10 && Math.random() < extraChance * 0.5) spawnEnemy();
+            if (level > 2 && Math.random() < extraChance * 0.8) spawnEnemy();
+            if (level > 5 && Math.random() < extraChance * 0.6) spawnEnemy();
+            if (level > 10 && Math.random() < extraChance * 0.4) spawnEnemy();
         }
 
         // ---- GERAKKAN MUSUH ----
         for (let i=enemies.length-1; i>=0; i--) {
             const e = enemies[i];
             
-            e.x += e.vx + Math.sin(frame * 0.04 + e.phase) * e.wiggle * 0.6;
+            e.x += e.vx + Math.sin(frame * 0.05 + e.phase) * e.wiggle * 0.8;
             e.y += e.vy;
-            e.x += Math.sin(frame * 0.025 * e.floatSpeed + e.phase) * e.floatAmp * 0.15;
+            e.x += Math.sin(frame * 0.03 * e.floatSpeed + e.phase) * e.floatAmp * 0.2;
 
             // ---- JIKA MENCAPAI ATAS ----
             if (e.y <= 30) {
                 health--;
                 updateUI();
-                screenShake = 12;
-                for (let j=0; j<18; j++) {
+                screenShake = 15;
+                for (let j=0; j<20; j++) {
                     const a = Math.random()*2*Math.PI;
-                    const s = 2 + Math.random()*5;
+                    const s = 2 + Math.random()*6;
                     particles.push({
                         x: e.x, y: 15,
                         vx: Math.cos(a)*s,
                         vy: Math.sin(a)*s * 0.5,
                         life: 1,
                         decay: 0.02 + Math.random()*0.025,
-                        radius: 3 + Math.random()*6,
+                        radius: 3 + Math.random()*7,
                         color: `hsla(0, 90%, 50%, 0.8)`,
                     });
                 }
@@ -313,12 +314,12 @@
             }
 
             // ---- KELUAR SAMPING? RESPAWN ----
-            if (e.x < -60 || e.x > W + 60) {
+            if (e.x < -80 || e.x > W + 80) {
                 e.x = 30 + Math.random() * (W - 60);
                 e.y = H + 20 + Math.random() * 30;
-                const speed = getEnemySpeed() * (0.8 + Math.random() * 0.3);
-                const angle = -Math.PI/2 + (Math.random() - 0.5) * 0.35;
-                e.vx = Math.cos(angle) * speed * 0.3;
+                const speed = getEnemySpeed() * (0.85 + Math.random() * 0.25);
+                const angle = -Math.PI/2 + (Math.random() - 0.5) * 0.4;
+                e.vx = Math.cos(angle) * speed * 0.35;
                 e.vy = Math.sin(angle) * speed;
             }
         }
@@ -344,7 +345,7 @@
             p.life -= p.decay;
             if (p.life <= 0) particles.splice(i, 1);
         }
-        if (particles.length > 250) particles.splice(0, particles.length - 250);
+        if (particles.length > 300) particles.splice(0, particles.length - 300);
 
         if (screenShake > 0) screenShake *= 0.9;
         if (screenShake < 0.1) screenShake = 0;
@@ -354,18 +355,26 @@
     function draw() {
         ctx.save();
         if (screenShake > 0.5) {
-            ctx.translate((Math.random()-0.5)*screenShake*1.3, (Math.random()-0.5)*screenShake*1.3);
+            ctx.translate((Math.random()-0.5)*screenShake*1.5, (Math.random()-0.5)*screenShake*1.5);
         }
 
         drawBackground();
 
         // Bullet
         for (const b of bullets) {
-            ctx.shadowBlur = 25;
+            ctx.shadowBlur = 30;
             ctx.shadowColor = '#ffaa44';
             ctx.fillStyle = '#ffdd77';
             ctx.beginPath();
             ctx.arc(b.x, b.y, b.radius * b.life, 0, Math.PI*2);
+            ctx.fill();
+            // Glow
+            const grad = ctx.createRadialGradient(b.x, b.y, 2, b.x, b.y, 20);
+            grad.addColorStop(0, 'rgba(255, 220, 100, 0.2)');
+            grad.addColorStop(1, 'rgba(255, 220, 100, 0)');
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.arc(b.x, b.y, 20, 0, Math.PI*2);
             ctx.fill();
             ctx.shadowBlur = 0;
         }
@@ -373,7 +382,7 @@
         // Partikel
         for (const p of particles) {
             ctx.globalAlpha = p.life * 0.9;
-            ctx.shadowBlur = 10;
+            ctx.shadowBlur = 12;
             ctx.shadowColor = '#ff6633';
             ctx.beginPath();
             ctx.arc(p.x, p.y, p.radius * p.life, 0, Math.PI*2);
@@ -386,85 +395,85 @@
         // Musuh
         for (const e of enemies) {
             const r = e.radius;
-            const grad = ctx.createRadialGradient(e.x, e.y, 2, e.x, e.y, r*1.6);
-            grad.addColorStop(0, `hsla(210, 70%, 70%, ${e.alpha*0.3})`);
+            const grad = ctx.createRadialGradient(e.x, e.y, 2, e.x, e.y, r*1.8);
+            grad.addColorStop(0, `hsla(210, 70%, 70%, ${e.alpha*0.35})`);
             grad.addColorStop(1, 'rgba(0,0,0,0)');
             ctx.fillStyle = grad;
             ctx.beginPath();
-            ctx.arc(e.x, e.y, r*1.6, 0, Math.PI*2);
+            ctx.arc(e.x, e.y, r*1.8, 0, Math.PI*2);
             ctx.fill();
 
-            ctx.shadowBlur = 25;
-            ctx.shadowColor = 'rgba(100,150,255,0.4)';
-            ctx.fillStyle = `hsla(210, 70%, 70%, ${e.alpha*0.5})`;
+            ctx.shadowBlur = 30;
+            ctx.shadowColor = 'rgba(100,150,255,0.5)';
+            ctx.fillStyle = `hsla(210, 70%, 70%, ${e.alpha*0.55})`;
             ctx.beginPath();
             ctx.arc(e.x, e.y, r, 0, Math.PI*2);
             ctx.fill();
 
-            ctx.fillStyle = `hsla(210, 70%, 70%, ${e.alpha*0.35})`;
-            ctx.shadowBlur = 15;
+            ctx.fillStyle = `hsla(210, 70%, 70%, ${e.alpha*0.4})`;
+            ctx.shadowBlur = 20;
             ctx.beginPath();
-            ctx.moveTo(e.x - r*0.4, e.y - r*0.3);
-            for (let t=0; t<=1; t+=0.05) {
-                const waveX = e.x + Math.sin(t*8 + frame*0.04 + e.phase) * r*0.25;
-                const waveY = e.y - r*0.3 - t*r*0.5;
+            ctx.moveTo(e.x - r*0.45, e.y - r*0.35);
+            for (let t=0; t<=1; t+=0.04) {
+                const waveX = e.x + Math.sin(t*9 + frame*0.05 + e.phase) * r*0.3;
+                const waveY = e.y - r*0.35 - t*r*0.55;
                 ctx.lineTo(waveX, waveY);
             }
-            ctx.lineTo(e.x + r*0.4, e.y - r*0.3);
+            ctx.lineTo(e.x + r*0.45, e.y - r*0.35);
             ctx.closePath();
             ctx.fill();
 
-            ctx.shadowBlur = 20;
+            ctx.shadowBlur = 25;
             ctx.shadowColor = '#ff3333';
             ctx.fillStyle = '#ff1a1a';
             ctx.beginPath();
-            ctx.arc(e.x - r*0.3, e.y - r*0.1, r*0.16, 0, Math.PI*2);
+            ctx.arc(e.x - r*0.3, e.y - r*0.1, r*0.17, 0, Math.PI*2);
             ctx.fill();
             ctx.beginPath();
-            ctx.arc(e.x + r*0.3, e.y - r*0.1, r*0.16, 0, Math.PI*2);
+            ctx.arc(e.x + r*0.3, e.y - r*0.1, r*0.17, 0, Math.PI*2);
             ctx.fill();
             ctx.shadowBlur = 0;
         }
 
         // Player (Crosshair)
         const px=player.x, py=player.y;
-        ctx.shadowBlur = 25;
+        ctx.shadowBlur = 30;
         ctx.shadowColor = '#ff4400';
-        ctx.strokeStyle = 'rgba(255,200,150,0.8)';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(px, py, player.radius+6, 0, Math.PI*2);
-        ctx.stroke();
-        ctx.shadowBlur = 15;
-        ctx.strokeStyle = 'rgba(255,200,150,0.9)';
+        ctx.strokeStyle = 'rgba(255,200,150,0.85)';
         ctx.lineWidth = 2.5;
-        const s = 16;
+        ctx.beginPath();
+        ctx.arc(px, py, player.radius+7, 0, Math.PI*2);
+        ctx.stroke();
+        ctx.shadowBlur = 20;
+        ctx.strokeStyle = 'rgba(255,200,150,0.95)';
+        ctx.lineWidth = 3;
+        const s = 18;
         ctx.beginPath();
         ctx.moveTo(px-s, py); ctx.lineTo(px+s, py);
         ctx.moveTo(px, py-s); ctx.lineTo(px, py+s);
         ctx.stroke();
-        ctx.shadowBlur = 30;
+        ctx.shadowBlur = 35;
         ctx.shadowColor = '#ff2200';
         ctx.fillStyle = '#ff3333';
         ctx.beginPath();
-        ctx.arc(px, py, 4, 0, Math.PI*2);
+        ctx.arc(px, py, 4.5, 0, Math.PI*2);
         ctx.fill();
         ctx.shadowBlur = 0;
 
         // Game Over
         if (gameOver) {
-            ctx.fillStyle = 'rgba(8,0,0,0.75)';
+            ctx.fillStyle = 'rgba(8,0,0,0.78)';
             ctx.fillRect(0,0,W,H);
             ctx.font = 'bold 60px monospace';
             ctx.fillStyle = '#cc2222';
             ctx.shadowColor = '#ff0000';
-            ctx.shadowBlur = 60;
+            ctx.shadowBlur = 70;
             ctx.textAlign = 'center';
-            ctx.fillText('😹☠️ MAMPOS ☠️😹', 450, 250);
+            ctx.fillText('😹 MAMPOSSS  CUPU 😹', 450, 250);
             ctx.font = '24px monospace';
             ctx.fillStyle = '#dd9988';
-            ctx.shadowBlur = 20;
-            ctx.fillText('klik "RESPAWN" biar mati suri', 450, 340);
+            ctx.shadowBlur = 25;
+            ctx.fillText('klik "RESPAWN" kalo mau idup lagi, ea😏', 450, 340);
             ctx.shadowBlur = 0;
             ctx.textAlign = 'left';
         }
@@ -516,8 +525,9 @@
     // ---- START ----
     restartGame();
     gameLoop();
-    console.log('👻 NIGHT SHOOTER||Punya Jyo pokoknya||👻');
+    console.log('👻 NIGHT SHOOTER || Pokoknya punya Jyo || 👻');
     console.log('Ga mungkin gatau harus ngapain');
+    console.log('Well well well :P');
 </script>
 </body>
 </html>
