@@ -33,7 +33,7 @@
 
 <script>
     // ============================================================
-    //  NIGHT SHOOTER — Kecepatan & Getaran Lebih Santai
+    //  NIGHT SHOOTER — 2 Crosshair + Hold to Shoot
     // ============================================================
 
     const canvas = document.getElementById('gameCanvas');
@@ -49,30 +49,29 @@
     const player = { x: 450, y: 550, radius: 12 };
     let enemies = [], particles = [], bullets = [];
 
-    // ---- PARAMETER LEBIH SANTAI ----
+    // ---- HOLD TO SHOOT ----
+    let isShooting = false;
+    let shootTimer = 0;
+    const SHOOT_DELAY = 6; // frame antara tembakan
+
+    // ---- PARAMETER SANTAI ----
     function getSpawnDelay() {
-        // Awal 28 → makin cepat sampai 8
         return Math.max(8, 28 - level * 1.2);
     }
-
     function getEnemySpeed() {
-        // Awal 1.0 → makin cepat sampai 4.0 (lebih pelan)
         return Math.min(4.0, 1.0 + level * 0.2);
     }
-
     function getMaxEnemies() {
         return Math.min(25, 6 + level * 2);
     }
-
     function getBulletSpeed() {
         return Math.min(18, 12 + level * 0.4);
     }
-
     function getSpawnExtraChance() {
         return Math.min(0.4, 0.08 + level * 0.025);
     }
 
-    // ---- BACKGROUND (CACHE) ----
+    // ---- BACKGROUND ----
     const buildings = [
         [10,55,280],[70,40,340],[115,60,210],[180,45,380],[230,55,260],
         [290,40,400],[335,65,190],[405,50,350],[460,40,420],[505,55,280],
@@ -169,36 +168,22 @@
         });
     }
 
-    // ---- TEMBAK ----
-    function handleShoot(e) {
+    // ---- TEMBAK (HOLD) ----
+    function shoot() {
         if (gameOver) return;
-        const rect = canvas.getBoundingClientRect();
-        const scaleX = W/rect.width, scaleY = H/rect.height;
-        let mx, my;
-        if (e.touches) {
-            const t = e.touches[0];
-            mx = (t.clientX - rect.left)*scaleX;
-            my = (t.clientY - rect.top)*scaleY;
-            e.preventDefault();
-        } else {
-            mx = (e.clientX - rect.left)*scaleX;
-            my = (e.clientY - rect.top)*scaleY;
-        }
-        mx = Math.min(W, Math.max(0, mx));
-        my = Math.min(H, Math.max(0, my));
-        player.x = mx; player.y = my;
-        screenShake = 3; // Dikurangi dari 6
+        const mx = player.x, my = player.y;
+        screenShake = 2;
 
-        for (let i=0; i<10; i++) {
+        for (let i=0; i<6; i++) {
             const a = Math.random()*2*Math.PI;
-            const d = 4 + Math.random()*14;
+            const d = 3 + Math.random()*10;
             particles.push({
                 x: mx, y: my,
-                vx: Math.cos(a)*d*0.5,
-                vy: Math.sin(a)*d*0.5 - 0.7,
-                life: 1,
-                decay: 0.03 + Math.random()*0.03,
-                radius: 2 + Math.random()*4,
+                vx: Math.cos(a)*d*0.4,
+                vy: Math.sin(a)*d*0.4 - 0.5,
+                life: 0.8,
+                decay: 0.04 + Math.random()*0.03,
+                radius: 2 + Math.random()*3,
                 color: `hsl(35, 95%, 70%)`,
             });
         }
@@ -208,24 +193,24 @@
             x: mx,
             y: my - 10,
             vy: -bulletSpeed,
-            radius: 6,
+            radius: 5,
             life: 1,
         });
 
         for (let i=enemies.length-1; i>=0; i--) {
             const e = enemies[i];
             const dist = Math.hypot(mx - e.x, my - e.y);
-            if (dist < e.radius * 0.6 + 14) {
-                for (let j=0; j<18; j++) {
+            if (dist < e.radius * 0.6 + 12) {
+                for (let j=0; j<15; j++) {
                     const a = Math.random()*2*Math.PI;
-                    const s = 2 + Math.random()*6;
+                    const s = 2 + Math.random()*5;
                     particles.push({
                         x: e.x, y: e.y,
                         vx: Math.cos(a)*s,
                         vy: Math.sin(a)*s - 0.5,
                         life: 1,
                         decay: 0.02 + Math.random()*0.025,
-                        radius: 3 + Math.random()*7,
+                        radius: 3 + Math.random()*6,
                         color: `hsla(200, 80%, 70%, 0.7)`,
                     });
                 }
@@ -248,9 +233,11 @@
     }
 
     function restartGame() {
-        score=0; health=7; level=1; gameOver=false;
+        score=0; health=5; level=1; gameOver=false;
         enemies=[]; particles=[]; bullets=[];
         player.x=450; player.y=550; screenShake=0;
+        isShooting = false;
+        shootTimer = 0;
         updateUI();
     }
 
@@ -258,6 +245,17 @@
     function update() {
         frame++;
         if (gameOver) return;
+
+        // ---- HOLD TO SHOOT ----
+        if (isShooting) {
+            shootTimer++;
+            if (shootTimer >= SHOOT_DELAY) {
+                shootTimer = 0;
+                shoot();
+            }
+        } else {
+            shootTimer = 0;
+        }
 
         const spawnDelay = getSpawnDelay();
         const extraChance = getSpawnExtraChance();
@@ -279,11 +277,10 @@
             e.y += e.vy;
             e.x += Math.sin(frame * 0.03 * e.floatSpeed + e.phase) * e.floatAmp * 0.2;
 
-            // ---- JIKA MENCAPAI ATAS ----
             if (e.y <= 30) {
                 health--;
                 updateUI();
-                screenShake = 6; // Dikurangi dari 15
+                screenShake = 5;
                 for (let j=0; j<15; j++) {
                     const a = Math.random()*2*Math.PI;
                     const s = 2 + Math.random()*5;
@@ -301,13 +298,12 @@
                 if (health <= 0) {
                     health = 0;
                     gameOver = true;
-                    screenShake = 4; // Dikurangi dari 20+
+                    screenShake = 3;
                     updateUI();
                 }
                 continue;
             }
 
-            // ---- KELUAR SAMPING? RESPAWN ----
             if (e.x < -80 || e.x > W + 80) {
                 e.x = 30 + Math.random() * (W - 60);
                 e.y = H + 20 + Math.random() * 30;
@@ -341,15 +337,13 @@
         }
         if (particles.length > 300) particles.splice(0, particles.length - 300);
 
-        // ---- SCREEN SHAKE (REDUKSI) ----
-        if (screenShake > 0) screenShake *= 0.92; // Lebih cepat redam
+        if (screenShake > 0) screenShake *= 0.92;
         if (screenShake < 0.1) screenShake = 0;
     }
 
     // ---- DRAW ----
     function draw() {
         ctx.save();
-        // Shake lebih halus
         if (screenShake > 0.3) {
             const intensity = screenShake * 0.6;
             ctx.translate(
@@ -434,32 +428,79 @@
             ctx.shadowBlur = 0;
         }
 
-        // Player (Crosshair)
-        const px=player.x, py=player.y;
-        ctx.shadowBlur = 25;
+        // ============================================================
+        //  2 CROSSHAIR (Shoot Pointer)
+        // ============================================================
+        const px = player.x, py = player.y;
+
+        // ---- CROSSHAIR 1 (Luar) ----
+        ctx.shadowBlur = 20;
         ctx.shadowColor = '#ff4400';
-        ctx.strokeStyle = 'rgba(255,200,150,0.85)';
+        ctx.strokeStyle = 'rgba(255, 200, 150, 0.8)';
         ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.arc(px, py, player.radius+6, 0, Math.PI*2);
+        ctx.arc(px, py, player.radius + 8, 0, Math.PI * 2);
         ctx.stroke();
+
+        // ---- CROSSHAIR 2 (Dalam) ----
         ctx.shadowBlur = 15;
-        ctx.strokeStyle = 'rgba(255,200,150,0.95)';
-        ctx.lineWidth = 2.5;
+        ctx.shadowColor = '#ff2200';
+        ctx.strokeStyle = 'rgba(255, 100, 80, 0.9)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(px, py, player.radius + 2, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // ---- GARIS SILANG (untuk kedua crosshair) ----
+        ctx.shadowBlur = 12;
+        ctx.strokeStyle = 'rgba(255, 200, 150, 0.7)';
+        ctx.lineWidth = 2;
         const s = 16;
         ctx.beginPath();
-        ctx.moveTo(px-s, py); ctx.lineTo(px+s, py);
-        ctx.moveTo(px, py-s); ctx.lineTo(px, py+s);
+        ctx.moveTo(px - s, py);
+        ctx.lineTo(px + s, py);
+        ctx.moveTo(px, py - s);
+        ctx.lineTo(px, py + s);
         ctx.stroke();
-        ctx.shadowBlur = 30;
+
+        // ---- GARIS SILANG KEDUA (lebih pendek) ----
+        ctx.strokeStyle = 'rgba(255, 100, 80, 0.5)';
+        ctx.lineWidth = 1.5;
+        const s2 = 10;
+        ctx.beginPath();
+        ctx.moveTo(px - s2, py);
+        ctx.lineTo(px + s2, py);
+        ctx.moveTo(px, py - s2);
+        ctx.lineTo(px, py + s2);
+        ctx.stroke();
+
+        // ---- TITIK TENGAH MERAH ----
+        ctx.shadowBlur = 25;
         ctx.shadowColor = '#ff2200';
         ctx.fillStyle = '#ff3333';
         ctx.beginPath();
-        ctx.arc(px, py, 4, 0, Math.PI*2);
+        ctx.arc(px, py, 4, 0, Math.PI * 2);
         ctx.fill();
+
+        // ---- TITIK TENGAH PUTIH (di dalam merah) ----
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+        ctx.beginPath();
+        ctx.arc(px, py, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+
         ctx.shadowBlur = 0;
 
-        // Game Over
+        // ---- INDIKATOR HOLD SHOOT ----
+        if (isShooting && !gameOver) {
+            ctx.fillStyle = 'rgba(255, 200, 100, 0.25)';
+            ctx.font = '14px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText('🔫 NAIS MANN', 450, 580);
+            ctx.textAlign = 'left';
+        }
+
+        // ---- GAME OVER ----
         if (gameOver) {
             ctx.fillStyle = 'rgba(8,0,0,0.78)';
             ctx.fillRect(0,0,W,H);
@@ -488,7 +529,24 @@
     }
 
     // ---- EVENTS ----
-    canvas.addEventListener('click', handleShoot);
+    // Mouse: HOLD untuk tembak
+    canvas.addEventListener('mousedown', (e) => {
+        if (gameOver) return;
+        isShooting = true;
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = W/rect.width;
+        const scaleY = H/rect.height;
+        let mx = (e.clientX - rect.left)*scaleX;
+        let my = (e.clientY - rect.top)*scaleY;
+        mx = Math.min(W, Math.max(0, mx));
+        my = Math.min(H, Math.max(0, my));
+        player.x = mx;
+        player.y = my;
+        shootTimer = SHOOT_DELAY;
+    });
+    canvas.addEventListener('mouseup', () => { isShooting = false; });
+    canvas.addEventListener('mouseleave', () => { isShooting = false; });
+
     canvas.addEventListener('mousemove', (e) => {
         if (gameOver) return;
         const rect = canvas.getBoundingClientRect();
@@ -501,10 +559,26 @@
         player.x = mx;
         player.y = my;
     });
+
+    // Touch: HOLD untuk tembak
     canvas.addEventListener('touchstart', (e) => {
         e.preventDefault();
-        handleShoot(e);
+        if (gameOver) return;
+        isShooting = true;
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = W/rect.width;
+        const scaleY = H/rect.height;
+        const t = e.touches[0];
+        let mx = (t.clientX - rect.left)*scaleX;
+        let my = (t.clientY - rect.top)*scaleY;
+        mx = Math.min(W, Math.max(0, mx));
+        my = Math.min(H, Math.max(0, my));
+        player.x = mx;
+        player.y = my;
+        shootTimer = SHOOT_DELAY;
     });
+    canvas.addEventListener('touchend', (e) => { e.preventDefault(); isShooting = false; });
+    canvas.addEventListener('touchcancel', (e) => { e.preventDefault(); isShooting = false; });
     canvas.addEventListener('touchmove', (e) => {
         e.preventDefault();
         if (gameOver) return;
@@ -519,15 +593,15 @@
         player.x = mx;
         player.y = my;
     }, { passive: false });
+
     document.getElementById('restartBtn').addEventListener('click', restartGame);
 
     // ---- START ----
     restartGame();
     gameLoop();
-    console.log('👻 NIGHT SHOOTER || Punya Jyo || 👻');
-    console.log(':3');
-    console.log(':P');
-    console.log('Well well well');
+    console.log('👻 NIGHT SHOOTER || 2 Crosshair + Hold to Shoot || 👻');
+    console.log('✅ Tahan klik/tap untuk tembak');
+    console.log('✅ 2 lingkaran crosshair');
 </script>
 </body>
 </html>
