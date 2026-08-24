@@ -16,12 +16,18 @@
         #healthDisplay { color: #ff6a4a; font-size: 24px; margin-left: 8px; }
         #levelDisplay { color: #b0d0ff; font-size: 20px; margin-left: 8px; }
         #bombDisplay { color: #ff8844; font-size: 22px; margin-left: 8px; font-weight: bold; }
+        #freezeDisplay { color: #66ccff; font-size: 18px; margin-left: 8px; font-weight: bold; }
         .restart-btn { background: #1f100a; border: 1px solid #4a2a1a; color: #d0b8a0; padding: 6px 24px; border-radius: 40px; font-family: 'Courier New', monospace; font-weight: bold; font-size: 15px; cursor: pointer; transition: 0.25s; }
         .restart-btn:hover { background: #2f1810; color: #ffe0c0; border-color: #8a3a2a; box-shadow: 0 0 35px rgba(200,50,20,0.5); transform: scale(1.03); }
         .bomb-btn { background: #4a1a0a; border: 2px solid #ff6633; color: #ff8844; padding: 6px 20px; border-radius: 40px; font-family: 'Courier New', monospace; font-weight: bold; font-size: 16px; cursor: pointer; transition: 0.25s; animation: pulse 1s infinite; }
         .bomb-btn:hover { background: #6a2a1a; color: #ffaa66; border-color: #ff8844; transform: scale(1.05); }
         .bomb-btn:disabled { opacity: 0.4; cursor: not-allowed; animation: none; }
+        .freeze-btn { background: #0a1a2a; border: 2px solid #44aaff; color: #66ccff; padding: 6px 20px; border-radius: 40px; font-family: 'Courier New', monospace; font-weight: bold; font-size: 16px; cursor: pointer; transition: 0.25s; }
+        .freeze-btn:hover { background: #1a2a3a; color: #88ddff; border-color: #66ccff; transform: scale(1.05); }
+        .freeze-btn:disabled { opacity: 0.4; cursor: not-allowed; animation: none; }
         @keyframes pulse { 0%, 100% { box-shadow: 0 0 10px rgba(255, 100, 0, 0.3); } 50% { box-shadow: 0 0 30px rgba(255, 100, 0, 0.6); } }
+        @keyframes freezePulse { 0%, 100% { box-shadow: 0 0 10px rgba(100, 200, 255, 0.3); } 50% { box-shadow: 0 0 30px rgba(100, 200, 255, 0.6); } }
+        .freeze-btn.active { animation: freezePulse 1s infinite; }
         @media (max-width: 960px) { .game-wrapper { padding: 10px; } #gameCanvas { width: 100%; height: auto; aspect-ratio: 900/600; } .ui-bar { font-size: 13px; justify-content: center; } }
     </style>
 </head>
@@ -33,6 +39,8 @@
         <div class="ui-box">❯❯❯ LEVEL <span id="levelDisplay">1</span></div>
         <div class="ui-box">⛨ HEALTH <span id="healthDisplay">7</span></div>
         <div class="ui-box">💥 BOM <span id="bombDisplay">0</span></div>
+        <div class="ui-box">❄️ FREEZE <span id="freezeDisplay">✓</span></div>
+        <button class="freeze-btn" id="freezeBtn">❄️ FREEZE</button>
         <button class="bomb-btn" id="bombBtn">☣︎ LEDAKIN</button>
         <button class="restart-btn" id="restartBtn">↻ RESPAWN</button>
     </div>
@@ -40,7 +48,8 @@
 
 <script>
     // ============================================================
-    //  NIGHT SHOOTER — 2 JARI TEMBAK + BOM MULTI
+    //  NIGHT SHOOTER — 2 JARI + BOM MULTI + TIME FREEZE
+    //  Freeze cooldown 7 detik, durasi 3 detik
     // ============================================================
 
     const canvas = document.getElementById('gameCanvas');
@@ -50,14 +59,16 @@
     const healthSpan = document.getElementById('healthDisplay');
     const levelSpan = document.getElementById('levelDisplay');
     const bombSpan = document.getElementById('bombDisplay');
+    const freezeSpan = document.getElementById('freezeDisplay');
     const bombBtn = document.getElementById('bombBtn');
+    const freezeBtn = document.getElementById('freezeBtn');
 
     // ---- STATE ----
     let score = 0, health = 7, level = 1, gameOver = false;
     let spawnCounter = 0, screenShake = 0, frame = 0;
     let enemies = [], particles = [], bullets = [];
 
-    // ---- 2 POINTER (JARI) ----
+    // ---- 2 POINTER ----
     const pointers = [
         { x: 400, y: 550, active: false, radius: 12 },
         { x: 500, y: 550, active: false, radius: 12 }
@@ -72,11 +83,21 @@
     let nextBombScore = BOMB_INTERVAL;
     let bombActive = false;
 
+    // ---- TIME FREEZE ----
+    let freezeActive = false;
+    let freezeTimer = 0;
+    const FREEZE_DURATION = 180; // 3 detik (60 FPS)
+    let freezeCooldown = 0;
+    const FREEZE_COOLDOWN = 420; // 7 detik (60 FPS)
+    let freezeReady = true;
+
     // ---- PARAMETER ----
     function getSpawnDelay() {
+        if (freezeActive) return Math.max(8, 28 - level * 1.2) * 10;
         return Math.max(8, 28 - level * 1.2);
     }
     function getEnemySpeed() {
+        if (freezeActive) return 0.15;
         return Math.min(4.0, 1.0 + level * 0.2);
     }
     function getMaxEnemies() {
@@ -160,7 +181,9 @@
         ctx.fillText(`⚡ ${Math.round(getEnemySpeed()*10)/10}`, 20, 580);
         ctx.fillText(`👻 ${enemies.length}/${Math.round(getMaxEnemies())}`, 120, 580);
         ctx.fillText(`💣 ${bombCount}`, 220, 580);
+        ctx.fillText(`❄️ ${freezeReady ? 'SIAP' : Math.ceil(freezeCooldown/60)+'s'}`, 300, 580);
 
+        // ---- BOM OVERLAY ----
         if (bombActive) {
             ctx.fillStyle = 'rgba(255, 100, 0, 0.08)';
             ctx.fillRect(0, 0, W, H);
@@ -170,6 +193,30 @@
             ctx.shadowBlur = 40;
             ctx.shadowColor = '#ff4400';
             ctx.fillText('💥 BOM AKTIF! Poin x2!', 450, 150);
+            ctx.shadowBlur = 0;
+            ctx.textAlign = 'left';
+        }
+
+        // ---- FREEZE OVERLAY ----
+        if (freezeActive) {
+            ctx.fillStyle = 'rgba(100, 200, 255, 0.08)';
+            ctx.fillRect(0, 0, W, H);
+            ctx.textAlign = 'center';
+            ctx.font = 'bold 36px monospace';
+            ctx.fillStyle = '#66ccff';
+            ctx.shadowBlur = 40;
+            ctx.shadowColor = '#0088ff';
+            ctx.fillText('❄️ TIME FREEZE!', 450, 200);
+            // Animasi kristal es
+            for (let i=0; i<12; i++) {
+                const angle = i/12 * Math.PI*2 + frame*0.02;
+                const dist = 120 + Math.sin(frame*0.05 + i)*25;
+                ctx.shadowBlur = 30;
+                ctx.fillStyle = `rgba(100, 200, 255, ${0.15 + Math.sin(frame*0.03 + i)*0.1})`;
+                ctx.beginPath();
+                ctx.arc(450 + Math.cos(angle)*dist, 300 + Math.sin(angle)*dist, 12 + Math.sin(frame*0.06 + i)*5, 0, Math.PI*2);
+                ctx.fill();
+            }
             ctx.shadowBlur = 0;
             ctx.textAlign = 'left';
         }
@@ -369,11 +416,72 @@
         bombBtn.style.color = bombCount > 0 ? '#ff8844' : '#665544';
     }
 
+    // ---- TIME FREEZE ----
+    function triggerFreeze() {
+        if (!freezeReady || freezeActive || gameOver) return;
+        freezeReady = false;
+        freezeActive = true;
+        freezeTimer = 0;
+        freezeCooldown = 0;
+        freezeBtn.disabled = true;
+        freezeBtn.textContent = '❄️ ...';
+        freezeSpan.textContent = '⏳';
+        freezeSpan.style.color = '#66ccff';
+
+        // Efek es
+        for (let j=0; j<40; j++) {
+            const a = Math.random()*2*Math.PI;
+            const s = 2 + Math.random()*8;
+            particles.push({
+                x: 450 + (Math.random()-0.5)*500,
+                y: 200 + Math.random()*350,
+                vx: Math.cos(a)*s * 0.3,
+                vy: Math.sin(a)*s * 0.3 - 0.5,
+                life: 1.5,
+                decay: 0.008 + Math.random()*0.015,
+                radius: 4 + Math.random()*12,
+                color: `hsla(200, 80%, ${70 + Math.random()*25}%, 0.8)`,
+            });
+        }
+
+        // Otomatis mati setelah 3 detik
+        setTimeout(() => {
+            freezeActive = false;
+            freezeReady = false;
+            freezeCooldown = 0;
+            freezeSpan.textContent = '⏳';
+            freezeSpan.style.color = '#ff8844';
+            freezeBtn.textContent = '❄️ ...';
+            freezeBtn.disabled = true;
+        }, FREEZE_DURATION / 60 * 1000);
+    }
+
+    function updateFreezeUI() {
+        if (freezeReady && !freezeActive) {
+            freezeSpan.textContent = '✓';
+            freezeSpan.style.color = '#66ccff';
+            freezeBtn.textContent = '❄️ FREEZE';
+            freezeBtn.disabled = false;
+        } else if (freezeActive) {
+            freezeSpan.textContent = '❄️';
+            freezeSpan.style.color = '#66ccff';
+            freezeBtn.textContent = '❄️ ACTIVE';
+            freezeBtn.disabled = true;
+        } else {
+            const remaining = Math.ceil(freezeCooldown / 60);
+            freezeSpan.textContent = `${remaining}s`;
+            freezeSpan.style.color = '#ff8844';
+            freezeBtn.textContent = `❄️ ${remaining}s`;
+            freezeBtn.disabled = true;
+        }
+    }
+
     function updateUI() {
         scoreSpan.textContent = score;
         healthSpan.textContent = health;
         levelSpan.textContent = level;
         updateBombUI();
+        updateFreezeUI();
     }
 
     function restartGame() {
@@ -387,6 +495,14 @@
         nextBombScore = BOMB_INTERVAL;
         bombActive = false;
         bombBtn.disabled = true;
+        freezeActive = false;
+        freezeTimer = 0;
+        freezeCooldown = 0;
+        freezeReady = true;
+        freezeBtn.disabled = false;
+        freezeBtn.textContent = '❄️ FREEZE';
+        freezeSpan.textContent = '✓';
+        freezeSpan.style.color = '#66ccff';
         updateBombUI();
         updateUI();
     }
@@ -395,6 +511,17 @@
     function update() {
         frame++;
         if (gameOver) return;
+
+        // ---- FREEZE COOLDOWN ----
+        if (!freezeReady && !freezeActive) {
+            freezeCooldown++;
+            if (freezeCooldown >= FREEZE_COOLDOWN) {
+                freezeReady = true;
+                updateFreezeUI();
+            } else {
+                updateFreezeUI();
+            }
+        }
 
         // ---- 2 JARI TEMBAK ----
         for (let i=0; i<2; i++) {
@@ -484,7 +611,7 @@
             p.life -= p.decay;
             if (p.life <= 0) particles.splice(i, 1);
         }
-        if (particles.length > 350) particles.splice(0, particles.length - 350);
+        if (particles.length > 400) particles.splice(0, particles.length - 400);
 
         if (screenShake > 0) screenShake *= 0.92;
         if (screenShake < 0.1) screenShake = 0;
@@ -503,7 +630,6 @@
 
         drawBackground();
 
-        // Bullet
         for (const b of bullets) {
             ctx.shadowBlur = 25;
             ctx.shadowColor = '#ffaa44';
@@ -521,7 +647,6 @@
             ctx.shadowBlur = 0;
         }
 
-        // Partikel
         for (const p of particles) {
             ctx.globalAlpha = p.life * 0.9;
             ctx.shadowBlur = 10;
@@ -534,7 +659,6 @@
         ctx.globalAlpha = 1;
         ctx.shadowBlur = 0;
 
-        // Musuh
         for (const e of enemies) {
             const r = e.radius;
             const grad = ctx.createRadialGradient(e.x, e.y, 2, e.x, e.y, r*1.6);
@@ -577,9 +701,7 @@
             ctx.shadowBlur = 0;
         }
 
-        // ============================================================
-        //  2 POINTER (CROSSHAIR)
-        // ============================================================
+        // ---- 2 POINTER (CROSSHAIR) ----
         for (let i=0; i<2; i++) {
             const p = pointers[i];
             const px = p.x, py = p.y;
@@ -624,15 +746,13 @@
             ctx.shadowBlur = 0;
         }
 
-        // ---- INDIKATOR ----
         const activeCount = pointers.filter(p => p.active).length;
         ctx.fillStyle = 'rgba(255, 200, 100, 0.2)';
         ctx.font = '12px monospace';
         ctx.textAlign = 'center';
-        ctx.fillText(`👆 ${activeCount} jari aktif | 💣 ${bombCount} bom`, 450, 580);
+        ctx.fillText(`👆 ${activeCount} jari | 💣 ${bombCount} | ❄️ ${freezeReady ? 'SIAP' : Math.ceil(freezeCooldown/60)+'s'}`, 450, 580);
         ctx.textAlign = 'left';
 
-        // ---- GAME OVER ----
         if (gameOver) {
             ctx.fillStyle = 'rgba(8,0,0,0.78)';
             ctx.fillRect(0,0,W,H);
@@ -661,7 +781,6 @@
     }
 
     // ---- EVENTS ----
-    // Mouse: 1 pointer (kiri)
     canvas.addEventListener('mousedown', (e) => {
         if (gameOver) return;
         const rect = canvas.getBoundingClientRect();
@@ -692,7 +811,6 @@
         pointers[0].y = my;
     });
 
-    // ---- TOUCH: 2 JARI ----
     canvas.addEventListener('touchstart', (e) => {
         e.preventDefault();
         if (gameOver) return;
@@ -752,14 +870,15 @@
 
     document.getElementById('restartBtn').addEventListener('click', restartGame);
     bombBtn.addEventListener('click', triggerBomb);
+    freezeBtn.addEventListener('click', triggerFreeze);
 
     // ---- START ----
     restartGame();
     gameLoop();
-    console.log('👻 NIGHT SHOOTER || 2 JARI + BOM MULTI || 👻');
+    console.log('👻 NIGHT SHOOTER || 2 JARI + BOM + FREEZE || 👻');
     console.log('✅ 2 jari tembak bersamaan');
-    console.log('💥 Dapat bom tiap 30 poin (max 5)');
-    console.log('☣︎ Klik LEDAKIN untuk ledakkan semua musuh');
+    console.log('💥 Bom tiap 30 poin (max 5)');
+    console.log('❄️ Freeze cooldown 7 detik, durasi 3 detik');
 </script>
 </body>
 </html>
