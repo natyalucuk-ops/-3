@@ -26,14 +26,15 @@
     <div class="ui-bar">
         <div class="ui-box">★ SCORE <span id="scoreDisplay">0</span></div>
         <div class="ui-box">❯❯❯ LEVEL <span id="levelDisplay">1</span></div>
-        <div class="ui-box">⛨ HEALTH <span id="healthDisplay">5</span></div>
+        <div class="ui-box">⛨ HEALTH <span id="healthDisplay">7</span></div>
         <button class="restart-btn" id="restartBtn">↻ RESPAWN</button>
     </div>
 </div>
 
 <script>
     // ============================================================
-    //  NIGHT SHOOTER — 2 Crosshair + Hold to Shoot
+    //  NIGHT SHOOTER — 2 JARI / 2 POINTER UNTUK TEMBAK
+    //  Sentuh dengan 2 jari → keduanya menembak bersamaan
     // ============================================================
 
     const canvas = document.getElementById('gameCanvas');
@@ -46,15 +47,17 @@
     // ---- STATE ----
     let score = 0, health = 7, level = 1, gameOver = false;
     let spawnCounter = 0, screenShake = 0, frame = 0;
-    const player = { x: 450, y: 550, radius: 12 };
     let enemies = [], particles = [], bullets = [];
 
-    // ---- HOLD TO SHOOT ----
-    let isShooting = false;
-    let shootTimer = 0;
-    const SHOOT_DELAY = 6; // frame antara tembakan
+    // ---- 2 POINTER (JARI) ----
+    const pointers = [
+        { x: 450, y: 550, active: false, radius: 12 },
+        { x: 500, y: 550, active: false, radius: 12 }
+    ];
+    let shootTimers = [0, 0];
+    const SHOOT_DELAY = 6;
 
-    // ---- PARAMETER SANTAI ----
+    // ---- PARAMETER ----
     function getSpawnDelay() {
         return Math.max(8, 28 - level * 1.2);
     }
@@ -168,21 +171,23 @@
         });
     }
 
-    // ---- TEMBAK (HOLD) ----
-    function shoot() {
+    // ---- TEMBAK DARI SATU POINTER ----
+    function shootFromPointer(index) {
         if (gameOver) return;
-        const mx = player.x, my = player.y;
+        const p = pointers[index];
+        if (!p.active) return;
+        const mx = p.x, my = p.y;
         screenShake = 2;
 
-        for (let i=0; i<6; i++) {
+        for (let i=0; i<4; i++) {
             const a = Math.random()*2*Math.PI;
-            const d = 3 + Math.random()*10;
+            const d = 2 + Math.random()*8;
             particles.push({
                 x: mx, y: my,
-                vx: Math.cos(a)*d*0.4,
-                vy: Math.sin(a)*d*0.4 - 0.5,
-                life: 0.8,
-                decay: 0.04 + Math.random()*0.03,
+                vx: Math.cos(a)*d*0.3,
+                vy: Math.sin(a)*d*0.3 - 0.4,
+                life: 0.7,
+                decay: 0.05 + Math.random()*0.03,
                 radius: 2 + Math.random()*3,
                 color: `hsl(35, 95%, 70%)`,
             });
@@ -195,13 +200,14 @@
             vy: -bulletSpeed,
             radius: 5,
             life: 1,
+            from: index,
         });
 
         for (let i=enemies.length-1; i>=0; i--) {
             const e = enemies[i];
             const dist = Math.hypot(mx - e.x, my - e.y);
             if (dist < e.radius * 0.6 + 12) {
-                for (let j=0; j<15; j++) {
+                for (let j=0; j<12; j++) {
                     const a = Math.random()*2*Math.PI;
                     const s = 2 + Math.random()*5;
                     particles.push({
@@ -233,11 +239,12 @@
     }
 
     function restartGame() {
-        score=0; health=5; level=1; gameOver=false;
+        score=0; health=7; level=1; gameOver=false;
         enemies=[]; particles=[]; bullets=[];
-        player.x=450; player.y=550; screenShake=0;
-        isShooting = false;
-        shootTimer = 0;
+        pointers[0].x = 400; pointers[0].y = 550; pointers[0].active = false;
+        pointers[1].x = 500; pointers[1].y = 550; pointers[1].active = false;
+        shootTimers = [0, 0];
+        screenShake = 0;
         updateUI();
     }
 
@@ -246,15 +253,17 @@
         frame++;
         if (gameOver) return;
 
-        // ---- HOLD TO SHOOT ----
-        if (isShooting) {
-            shootTimer++;
-            if (shootTimer >= SHOOT_DELAY) {
-                shootTimer = 0;
-                shoot();
+        // ---- TEMBAK DARI 2 POINTER ----
+        for (let i=0; i<2; i++) {
+            if (pointers[i].active) {
+                shootTimers[i]++;
+                if (shootTimers[i] >= SHOOT_DELAY) {
+                    shootTimers[i] = 0;
+                    shootFromPointer(i);
+                }
+            } else {
+                shootTimers[i] = 0;
             }
-        } else {
-            shootTimer = 0;
         }
 
         const spawnDelay = getSpawnDelay();
@@ -269,7 +278,6 @@
             if (level > 7 && Math.random() < extraChance * 0.5) spawnEnemy();
         }
 
-        // ---- GERAKKAN MUSUH ----
         for (let i=enemies.length-1; i>=0; i--) {
             const e = enemies[i];
             
@@ -314,7 +322,6 @@
             }
         }
 
-        // ---- BULLET ----
         for (let i=bullets.length-1; i>=0; i--) {
             const b = bullets[i];
             b.y += b.vy;
@@ -324,7 +331,6 @@
             }
         }
 
-        // ---- PARTIKEL ----
         for (let i=particles.length-1; i>=0; i--) {
             const p = particles[i];
             p.x += p.vx;
@@ -429,76 +435,64 @@
         }
 
         // ============================================================
-        //  2 CROSSHAIR (Shoot Pointer)
+        //  2 POINTER (CROSSHAIR)
         // ============================================================
-        const px = player.x, py = player.y;
+        for (let i=0; i<2; i++) {
+            const p = pointers[i];
+            const px = p.x, py = p.y;
 
-        // ---- CROSSHAIR 1 (Luar) ----
-        ctx.shadowBlur = 20;
-        ctx.shadowColor = '#ff4400';
-        ctx.strokeStyle = 'rgba(255, 200, 150, 0.8)';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(px, py, player.radius + 8, 0, Math.PI * 2);
-        ctx.stroke();
+            // Warna beda: pointer 1 orange, pointer 2 cyan
+            const color1 = i === 0 ? 'rgba(255, 200, 150, 0.85)' : 'rgba(100, 200, 255, 0.85)';
+            const color2 = i === 0 ? 'rgba(255, 100, 80, 0.9)' : 'rgba(80, 180, 255, 0.9)';
+            const shadowColor = i === 0 ? '#ff4400' : '#0088ff';
 
-        // ---- CROSSHAIR 2 (Dalam) ----
-        ctx.shadowBlur = 15;
-        ctx.shadowColor = '#ff2200';
-        ctx.strokeStyle = 'rgba(255, 100, 80, 0.9)';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(px, py, player.radius + 2, 0, Math.PI * 2);
-        ctx.stroke();
+            // Lingkaran luar
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = shadowColor;
+            ctx.strokeStyle = color1;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(px, py, p.radius + 8, 0, Math.PI * 2);
+            ctx.stroke();
 
-        // ---- GARIS SILANG (untuk kedua crosshair) ----
-        ctx.shadowBlur = 12;
-        ctx.strokeStyle = 'rgba(255, 200, 150, 0.7)';
-        ctx.lineWidth = 2;
-        const s = 16;
-        ctx.beginPath();
-        ctx.moveTo(px - s, py);
-        ctx.lineTo(px + s, py);
-        ctx.moveTo(px, py - s);
-        ctx.lineTo(px, py + s);
-        ctx.stroke();
+            // Lingkaran dalam
+            ctx.shadowBlur = 15;
+            ctx.strokeStyle = color2;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(px, py, p.radius + 2, 0, Math.PI * 2);
+            ctx.stroke();
 
-        // ---- GARIS SILANG KEDUA (lebih pendek) ----
-        ctx.strokeStyle = 'rgba(255, 100, 80, 0.5)';
-        ctx.lineWidth = 1.5;
-        const s2 = 10;
-        ctx.beginPath();
-        ctx.moveTo(px - s2, py);
-        ctx.lineTo(px + s2, py);
-        ctx.moveTo(px, py - s2);
-        ctx.lineTo(px, py + s2);
-        ctx.stroke();
+            // Garis silang
+            ctx.shadowBlur = 12;
+            ctx.strokeStyle = color1;
+            ctx.lineWidth = 2;
+            const s = 16;
+            ctx.beginPath();
+            ctx.moveTo(px - s, py);
+            ctx.lineTo(px + s, py);
+            ctx.moveTo(px, py - s);
+            ctx.lineTo(px, py + s);
+            ctx.stroke();
 
-        // ---- TITIK TENGAH MERAH ----
-        ctx.shadowBlur = 25;
-        ctx.shadowColor = '#ff2200';
-        ctx.fillStyle = '#ff3333';
-        ctx.beginPath();
-        ctx.arc(px, py, 4, 0, Math.PI * 2);
-        ctx.fill();
+            // Titik tengah
+            ctx.shadowBlur = 25;
+            ctx.shadowColor = shadowColor;
+            ctx.fillStyle = i === 0 ? '#ff3333' : '#33bbff';
+            ctx.beginPath();
+            ctx.arc(px, py, 4, 0, Math.PI * 2);
+            ctx.fill();
 
-        // ---- TITIK TENGAH PUTIH (di dalam merah) ----
-        ctx.shadowBlur = 0;
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-        ctx.beginPath();
-        ctx.arc(px, py, 1.5, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.shadowBlur = 0;
-
-        // ---- INDIKATOR HOLD SHOOT ----
-        if (isShooting && !gameOver) {
-            ctx.fillStyle = 'rgba(255, 200, 100, 0.25)';
-            ctx.font = '14px monospace';
-            ctx.textAlign = 'center';
-            ctx.fillText('🔫 NAIS MANN', 450, 580);
-            ctx.textAlign = 'left';
+            ctx.shadowBlur = 0;
         }
+
+        // ---- INDIKATOR 2 JARI ----
+        ctx.fillStyle = 'rgba(255, 200, 100, 0.2)';
+        ctx.font = '12px monospace';
+        ctx.textAlign = 'center';
+        const activeCount = pointers.filter(p => p.active).length;
+        ctx.fillText(`👆 ${activeCount} jari aktif`, 450, 580);
+        ctx.textAlign = 'left';
 
         // ---- GAME OVER ----
         if (gameOver) {
@@ -529,10 +523,9 @@
     }
 
     // ---- EVENTS ----
-    // Mouse: HOLD untuk tembak
+    // Mouse: 1 pointer (kiri)
     canvas.addEventListener('mousedown', (e) => {
         if (gameOver) return;
-        isShooting = true;
         const rect = canvas.getBoundingClientRect();
         const scaleX = W/rect.width;
         const scaleY = H/rect.height;
@@ -540,12 +533,13 @@
         let my = (e.clientY - rect.top)*scaleY;
         mx = Math.min(W, Math.max(0, mx));
         my = Math.min(H, Math.max(0, my));
-        player.x = mx;
-        player.y = my;
-        shootTimer = SHOOT_DELAY;
+        pointers[0].x = mx;
+        pointers[0].y = my;
+        pointers[0].active = true;
+        shootTimers[0] = SHOOT_DELAY;
     });
-    canvas.addEventListener('mouseup', () => { isShooting = false; });
-    canvas.addEventListener('mouseleave', () => { isShooting = false; });
+    canvas.addEventListener('mouseup', () => { pointers[0].active = false; });
+    canvas.addEventListener('mouseleave', () => { pointers[0].active = false; });
 
     canvas.addEventListener('mousemove', (e) => {
         if (gameOver) return;
@@ -556,52 +550,79 @@
         let my = (e.clientY - rect.top)*scaleY;
         mx = Math.min(W, Math.max(0, mx));
         my = Math.min(H, Math.max(0, my));
-        player.x = mx;
-        player.y = my;
+        pointers[0].x = mx;
+        pointers[0].y = my;
     });
 
-    // Touch: HOLD untuk tembak
+    // ---- TOUCH: 2 JARI ----
     canvas.addEventListener('touchstart', (e) => {
         e.preventDefault();
         if (gameOver) return;
-        isShooting = true;
-        const rect = canvas.getBoundingClientRect();
-        const scaleX = W/rect.width;
-        const scaleY = H/rect.height;
-        const t = e.touches[0];
-        let mx = (t.clientX - rect.left)*scaleX;
-        let my = (t.clientY - rect.top)*scaleY;
-        mx = Math.min(W, Math.max(0, mx));
-        my = Math.min(H, Math.max(0, my));
-        player.x = mx;
-        player.y = my;
-        shootTimer = SHOOT_DELAY;
+        for (let i=0; i<Math.min(e.touches.length, 2); i++) {
+            const touch = e.touches[i];
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = W/rect.width;
+            const scaleY = H/rect.height;
+            let mx = (touch.clientX - rect.left)*scaleX;
+            let my = (touch.clientY - rect.top)*scaleY;
+            mx = Math.min(W, Math.max(0, mx));
+            my = Math.min(H, Math.max(0, my));
+            pointers[i].x = mx;
+            pointers[i].y = my;
+            pointers[i].active = true;
+            shootTimers[i] = SHOOT_DELAY;
+        }
     });
-    canvas.addEventListener('touchend', (e) => { e.preventDefault(); isShooting = false; });
-    canvas.addEventListener('touchcancel', (e) => { e.preventDefault(); isShooting = false; });
+
     canvas.addEventListener('touchmove', (e) => {
         e.preventDefault();
         if (gameOver) return;
         const rect = canvas.getBoundingClientRect();
         const scaleX = W/rect.width;
         const scaleY = H/rect.height;
-        const t = e.touches[0];
-        let mx = (t.clientX - rect.left)*scaleX;
-        let my = (t.clientY - rect.top)*scaleY;
-        mx = Math.min(W, Math.max(0, mx));
-        my = Math.min(H, Math.max(0, my));
-        player.x = mx;
-        player.y = my;
+        for (let i=0; i<Math.min(e.touches.length, 2); i++) {
+            const touch = e.touches[i];
+            let mx = (touch.clientX - rect.left)*scaleX;
+            let my = (touch.clientY - rect.top)*scaleY;
+            mx = Math.min(W, Math.max(0, mx));
+            my = Math.min(H, Math.max(0, my));
+            pointers[i].x = mx;
+            pointers[i].y = my;
+            pointers[i].active = true;
+        }
+        // Matikan pointer yang tidak ada touch-nya
+        for (let i=e.touches.length; i<2; i++) {
+            pointers[i].active = false;
+        }
     }, { passive: false });
+
+    canvas.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        // Matikan semua pointer
+        for (let i=0; i<2; i++) {
+            pointers[i].active = false;
+        }
+        // Aktifkan ulang yang masih ada
+        for (let i=0; i<Math.min(e.touches.length, 2); i++) {
+            pointers[i].active = true;
+        }
+    });
+
+    canvas.addEventListener('touchcancel', (e) => {
+        e.preventDefault();
+        for (let i=0; i<2; i++) {
+            pointers[i].active = false;
+        }
+    });
 
     document.getElementById('restartBtn').addEventListener('click', restartGame);
 
     // ---- START ----
     restartGame();
     gameLoop();
-    console.log('👻 NIGHT SHOOTER || 2 Crosshair + Hold to Shoot || 👻');
-    console.log('✅ Tahan klik/tap untuk tembak');
-    console.log('✅ 2 lingkaran crosshair');
+    console.log('👻 NIGHT SHOOTER || 2 JARI UNTUK TEMBAK || 👻');
+    console.log('✅ Sentuh dengan 2 jari → keduanya menembak');
+    console.log('✅ Pointer 1: orange, Pointer 2: biru');
 </script>
 </body>
 </html>
