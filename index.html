@@ -40,8 +40,7 @@
 
 <script>
     // ============================================================
-    //  NIGHT SHOOTER — BOM MULTI (Tumpuk hingga 5)
-    //  Dapat 1 bom setiap 30 poin, bisa ditumpuk sampai 5
+    //  NIGHT SHOOTER — 2 JARI TEMBAK + BOM MULTI
     // ============================================================
 
     const canvas = document.getElementById('gameCanvas');
@@ -56,21 +55,22 @@
     // ---- STATE ----
     let score = 0, health = 7, level = 1, gameOver = false;
     let spawnCounter = 0, screenShake = 0, frame = 0;
-    const player = { x: 450, y: 550, radius: 12 };
     let enemies = [], particles = [], bullets = [];
+
+    // ---- 2 POINTER (JARI) ----
+    const pointers = [
+        { x: 400, y: 550, active: false, radius: 12 },
+        { x: 500, y: 550, active: false, radius: 12 }
+    ];
+    let shootTimers = [0, 0];
+    const SHOOT_DELAY = 6;
 
     // ---- BOM MULTI ----
     let bombCount = 0;
     const MAX_BOMB = 5;
-    const BOMB_INTERVAL = 30; // Dapat bom setiap 30 poin
+    const BOMB_INTERVAL = 30;
     let nextBombScore = BOMB_INTERVAL;
     let bombActive = false;
-    let bombTimer = 0;
-
-    // ---- HOLD TO SHOOT ----
-    let isShooting = false;
-    let shootTimer = 0;
-    const SHOOT_DELAY = 6;
 
     // ---- PARAMETER ----
     function getSpawnDelay() {
@@ -161,7 +161,6 @@
         ctx.fillText(`👻 ${enemies.length}/${Math.round(getMaxEnemies())}`, 120, 580);
         ctx.fillText(`💣 ${bombCount}`, 220, 580);
 
-        // ---- BOM ACTIVE OVERLAY ----
         if (bombActive) {
             ctx.fillStyle = 'rgba(255, 100, 0, 0.08)';
             ctx.fillRect(0, 0, W, H);
@@ -201,20 +200,79 @@
         });
     }
 
-    // ---- LEDAKIN BOM ----
+    // ---- TEMBAK DARI POINTER ----
+    function shootFromPointer(index) {
+        if (gameOver) return;
+        const p = pointers[index];
+        if (!p.active) return;
+        const mx = p.x, my = p.y;
+        screenShake = 2;
+
+        for (let i=0; i<4; i++) {
+            const a = Math.random()*2*Math.PI;
+            const d = 2 + Math.random()*8;
+            particles.push({
+                x: mx, y: my,
+                vx: Math.cos(a)*d*0.3,
+                vy: Math.sin(a)*d*0.3 - 0.4,
+                life: 0.7,
+                decay: 0.05 + Math.random()*0.03,
+                radius: 2 + Math.random()*3,
+                color: `hsl(35, 95%, 70%)`,
+            });
+        }
+
+        const bulletSpeed = getBulletSpeed();
+        bullets.push({
+            x: mx,
+            y: my - 10,
+            vy: -bulletSpeed,
+            radius: 5,
+            life: 1,
+            from: index,
+        });
+
+        for (let i=enemies.length-1; i>=0; i--) {
+            const e = enemies[i];
+            const dist = Math.hypot(mx - e.x, my - e.y);
+            if (dist < e.radius * 0.6 + 12) {
+                let pointGain = 1;
+                if (bombActive) pointGain = 2;
+
+                for (let j=0; j<12; j++) {
+                    const a = Math.random()*2*Math.PI;
+                    const s = 2 + Math.random()*5;
+                    particles.push({
+                        x: e.x, y: e.y,
+                        vx: Math.cos(a)*s,
+                        vy: Math.sin(a)*s - 0.5,
+                        life: 1,
+                        decay: 0.02 + Math.random()*0.025,
+                        radius: 3 + Math.random()*6,
+                        color: `hsla(200, 80%, 70%, 0.7)`,
+                    });
+                }
+                enemies.splice(i,1);
+                score += pointGain;
+                const newLevel = Math.floor(score/8) + 1;
+                if (newLevel > level) level = newLevel;
+                checkBombReward();
+                updateUI();
+                break;
+            }
+        }
+    }
+
+    // ---- BOM MULTI ----
     function triggerBomb() {
-        if (bombCount <= 0 || gameOver) return;
-        if (bombActive) return;
+        if (bombCount <= 0 || gameOver || bombActive) return;
 
         bombActive = true;
-        bombTimer = 0;
         bombCount--;
         bombBtn.disabled = true;
         updateBombUI();
-
         screenShake = 12;
 
-        // Efek ledakan besar di tengah
         const cx = 450, cy = 300;
         for (let j=0; j<80; j++) {
             const a = Math.random()*2*Math.PI;
@@ -231,12 +289,10 @@
             });
         }
 
-        // ---- LEDAKKAN SEMUA MUSUH ----
         let killed = 0;
         for (let i=enemies.length-1; i>=0; i--) {
             const e = enemies[i];
             killed++;
-            // Efek per musuh
             for (let j=0; j<15; j++) {
                 const a = Math.random()*2*Math.PI;
                 const s = 2 + Math.random()*7;
@@ -250,15 +306,12 @@
                     color: `hsla(30, 100%, ${50 + Math.random()*30}%, 0.9)`,
                 });
             }
-            // Poin x2
             score += 2;
             enemies.splice(i, 1);
         }
 
-        // Bonus tambahan
         if (killed > 0) {
             score += Math.floor(killed / 2);
-            // Floating text
             for (let i=0; i<8; i++) {
                 particles.push({
                     x: 450 + (Math.random()-0.5)*250,
@@ -273,14 +326,11 @@
             }
         }
 
-        // Update level
         const newLevel = Math.floor(score/8) + 1;
         if (newLevel > level) level = newLevel;
-        
-        updateUI();
         checkBombReward();
+        updateUI();
 
-        // Matikan bomb setelah 2 detik
         setTimeout(() => {
             bombActive = false;
             bombBtn.disabled = (bombCount <= 0);
@@ -288,12 +338,10 @@
         }, 2000);
     }
 
-    // ---- CEK DAPAT BOM ----
     function checkBombReward() {
         while (score >= nextBombScore && bombCount < MAX_BOMB) {
             bombCount++;
             nextBombScore += BOMB_INTERVAL;
-            // Efek dapat bom
             for (let i=0; i<20; i++) {
                 const a = Math.random()*2*Math.PI;
                 const s = 2 + Math.random()*5;
@@ -317,74 +365,8 @@
     function updateBombUI() {
         bombSpan.textContent = bombCount;
         bombBtn.disabled = (bombCount <= 0 || bombActive);
-        if (bombCount > 0) {
-            bombBtn.style.borderColor = '#ff8844';
-            bombBtn.style.color = '#ff8844';
-        } else {
-            bombBtn.style.borderColor = '#4a2a1a';
-            bombBtn.style.color = '#665544';
-        }
-    }
-
-    // ---- TEMBAK (HOLD) ----
-    function shoot() {
-        if (gameOver) return;
-        const mx = player.x, my = player.y;
-        screenShake = 2;
-
-        for (let i=0; i<6; i++) {
-            const a = Math.random()*2*Math.PI;
-            const d = 3 + Math.random()*10;
-            particles.push({
-                x: mx, y: my,
-                vx: Math.cos(a)*d*0.4,
-                vy: Math.sin(a)*d*0.4 - 0.5,
-                life: 0.8,
-                decay: 0.04 + Math.random()*0.03,
-                radius: 2 + Math.random()*3,
-                color: `hsl(35, 95%, 70%)`,
-            });
-        }
-
-        const bulletSpeed = getBulletSpeed();
-        bullets.push({
-            x: mx,
-            y: my - 10,
-            vy: -bulletSpeed,
-            radius: 5,
-            life: 1,
-        });
-
-        for (let i=enemies.length-1; i>=0; i--) {
-            const e = enemies[i];
-            const dist = Math.hypot(mx - e.x, my - e.y);
-            if (dist < e.radius * 0.6 + 12) {
-                let pointGain = 1;
-                if (bombActive) pointGain = 2;
-
-                for (let j=0; j<15; j++) {
-                    const a = Math.random()*2*Math.PI;
-                    const s = 2 + Math.random()*5;
-                    particles.push({
-                        x: e.x, y: e.y,
-                        vx: Math.cos(a)*s,
-                        vy: Math.sin(a)*s - 0.5,
-                        life: 1,
-                        decay: 0.02 + Math.random()*0.025,
-                        radius: 3 + Math.random()*6,
-                        color: `hsla(200, 80%, 70%, 0.7)`,
-                    });
-                }
-                enemies.splice(i,1);
-                score += pointGain;
-                const newLevel = Math.floor(score/8) + 1;
-                if (newLevel > level) level = newLevel;
-                
-                checkBombReward();
-                updateUI();
-                break;
-            }
-        }
+        bombBtn.style.borderColor = bombCount > 0 ? '#ff8844' : '#4a2a1a';
+        bombBtn.style.color = bombCount > 0 ? '#ff8844' : '#665544';
     }
 
     function updateUI() {
@@ -397,9 +379,10 @@
     function restartGame() {
         score=0; health=7; level=1; gameOver=false;
         enemies=[]; particles=[]; bullets=[];
-        player.x=450; player.y=550; screenShake=0;
-        isShooting = false;
-        shootTimer = 0;
+        pointers[0].x = 400; pointers[0].y = 550; pointers[0].active = false;
+        pointers[1].x = 500; pointers[1].y = 550; pointers[1].active = false;
+        shootTimers = [0, 0];
+        screenShake = 0;
         bombCount = 0;
         nextBombScore = BOMB_INTERVAL;
         bombActive = false;
@@ -413,14 +396,17 @@
         frame++;
         if (gameOver) return;
 
-        if (isShooting) {
-            shootTimer++;
-            if (shootTimer >= SHOOT_DELAY) {
-                shootTimer = 0;
-                shoot();
+        // ---- 2 JARI TEMBAK ----
+        for (let i=0; i<2; i++) {
+            if (pointers[i].active) {
+                shootTimers[i]++;
+                if (shootTimers[i] >= SHOOT_DELAY) {
+                    shootTimers[i] = 0;
+                    shootFromPointer(i);
+                }
+            } else {
+                shootTimers[i] = 0;
             }
-        } else {
-            shootTimer = 0;
         }
 
         const spawnDelay = getSpawnDelay();
@@ -517,6 +503,7 @@
 
         drawBackground();
 
+        // Bullet
         for (const b of bullets) {
             ctx.shadowBlur = 25;
             ctx.shadowColor = '#ffaa44';
@@ -534,6 +521,7 @@
             ctx.shadowBlur = 0;
         }
 
+        // Partikel
         for (const p of particles) {
             ctx.globalAlpha = p.life * 0.9;
             ctx.shadowBlur = 10;
@@ -546,6 +534,7 @@
         ctx.globalAlpha = 1;
         ctx.shadowBlur = 0;
 
+        // Musuh
         for (const e of enemies) {
             const r = e.radius;
             const grad = ctx.createRadialGradient(e.x, e.y, 2, e.x, e.y, r*1.6);
@@ -588,47 +577,60 @@
             ctx.shadowBlur = 0;
         }
 
-        // Player (Crosshair)
-        const px=player.x, py=player.y;
-        ctx.shadowBlur = 25;
-        ctx.shadowColor = '#ff4400';
-        ctx.strokeStyle = 'rgba(255,200,150,0.85)';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(px, py, player.radius+6, 0, Math.PI*2);
-        ctx.stroke();
-        ctx.shadowBlur = 15;
-        ctx.strokeStyle = 'rgba(255,200,150,0.95)';
-        ctx.lineWidth = 2.5;
-        const s = 16;
-        ctx.beginPath();
-        ctx.moveTo(px-s, py); ctx.lineTo(px+s, py);
-        ctx.moveTo(px, py-s); ctx.lineTo(px, py+s);
-        ctx.stroke();
-        ctx.shadowBlur = 30;
-        ctx.shadowColor = '#ff2200';
-        ctx.fillStyle = '#ff3333';
-        ctx.beginPath();
-        ctx.arc(px, py, 4, 0, Math.PI*2);
-        ctx.fill();
-        ctx.shadowBlur = 0;
+        // ============================================================
+        //  2 POINTER (CROSSHAIR)
+        // ============================================================
+        for (let i=0; i<2; i++) {
+            const p = pointers[i];
+            const px = p.x, py = p.y;
 
-        if (isShooting && !gameOver) {
-            ctx.fillStyle = 'rgba(255, 200, 100, 0.25)';
-            ctx.font = '14px monospace';
-            ctx.textAlign = 'center';
-            ctx.fillText('🔫 NAIS MANN', 450, 580);
-            ctx.textAlign = 'left';
+            const color1 = i === 0 ? 'rgba(255, 200, 150, 0.85)' : 'rgba(100, 200, 255, 0.85)';
+            const color2 = i === 0 ? 'rgba(255, 100, 80, 0.9)' : 'rgba(80, 180, 255, 0.9)';
+            const shadowColor = i === 0 ? '#ff4400' : '#0088ff';
+
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = shadowColor;
+            ctx.strokeStyle = color1;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(px, py, p.radius + 8, 0, Math.PI * 2);
+            ctx.stroke();
+
+            ctx.shadowBlur = 15;
+            ctx.strokeStyle = color2;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(px, py, p.radius + 2, 0, Math.PI * 2);
+            ctx.stroke();
+
+            ctx.shadowBlur = 12;
+            ctx.strokeStyle = color1;
+            ctx.lineWidth = 2;
+            const s = 16;
+            ctx.beginPath();
+            ctx.moveTo(px - s, py);
+            ctx.lineTo(px + s, py);
+            ctx.moveTo(px, py - s);
+            ctx.lineTo(px, py + s);
+            ctx.stroke();
+
+            ctx.shadowBlur = 25;
+            ctx.shadowColor = shadowColor;
+            ctx.fillStyle = i === 0 ? '#ff3333' : '#33bbff';
+            ctx.beginPath();
+            ctx.arc(px, py, 4, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.shadowBlur = 0;
         }
 
-        // ---- INDIKATOR BOM DI KANAN BAWAH ----
-        if (bombCount > 0) {
-            ctx.fillStyle = 'rgba(255, 136, 68, 0.3)';
-            ctx.font = '16px monospace';
-            ctx.textAlign = 'right';
-            ctx.fillText(`💥 x${bombCount}`, W - 20, 580);
-            ctx.textAlign = 'left';
-        }
+        // ---- INDIKATOR ----
+        const activeCount = pointers.filter(p => p.active).length;
+        ctx.fillStyle = 'rgba(255, 200, 100, 0.2)';
+        ctx.font = '12px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(`👆 ${activeCount} jari aktif | 💣 ${bombCount} bom`, 450, 580);
+        ctx.textAlign = 'left';
 
         // ---- GAME OVER ----
         if (gameOver) {
@@ -659,9 +661,9 @@
     }
 
     // ---- EVENTS ----
+    // Mouse: 1 pointer (kiri)
     canvas.addEventListener('mousedown', (e) => {
         if (gameOver) return;
-        isShooting = true;
         const rect = canvas.getBoundingClientRect();
         const scaleX = W/rect.width;
         const scaleY = H/rect.height;
@@ -669,12 +671,13 @@
         let my = (e.clientY - rect.top)*scaleY;
         mx = Math.min(W, Math.max(0, mx));
         my = Math.min(H, Math.max(0, my));
-        player.x = mx;
-        player.y = my;
-        shootTimer = SHOOT_DELAY;
+        pointers[0].x = mx;
+        pointers[0].y = my;
+        pointers[0].active = true;
+        shootTimers[0] = SHOOT_DELAY;
     });
-    canvas.addEventListener('mouseup', () => { isShooting = false; });
-    canvas.addEventListener('mouseleave', () => { isShooting = false; });
+    canvas.addEventListener('mouseup', () => { pointers[0].active = false; });
+    canvas.addEventListener('mouseleave', () => { pointers[0].active = false; });
 
     canvas.addEventListener('mousemove', (e) => {
         if (gameOver) return;
@@ -685,42 +688,67 @@
         let my = (e.clientY - rect.top)*scaleY;
         mx = Math.min(W, Math.max(0, mx));
         my = Math.min(H, Math.max(0, my));
-        player.x = mx;
-        player.y = my;
+        pointers[0].x = mx;
+        pointers[0].y = my;
     });
 
+    // ---- TOUCH: 2 JARI ----
     canvas.addEventListener('touchstart', (e) => {
         e.preventDefault();
         if (gameOver) return;
-        isShooting = true;
         const rect = canvas.getBoundingClientRect();
         const scaleX = W/rect.width;
         const scaleY = H/rect.height;
-        const t = e.touches[0];
-        let mx = (t.clientX - rect.left)*scaleX;
-        let my = (t.clientY - rect.top)*scaleY;
-        mx = Math.min(W, Math.max(0, mx));
-        my = Math.min(H, Math.max(0, my));
-        player.x = mx;
-        player.y = my;
-        shootTimer = SHOOT_DELAY;
+        for (let i=0; i<Math.min(e.touches.length, 2); i++) {
+            const touch = e.touches[i];
+            let mx = (touch.clientX - rect.left)*scaleX;
+            let my = (touch.clientY - rect.top)*scaleY;
+            mx = Math.min(W, Math.max(0, mx));
+            my = Math.min(H, Math.max(0, my));
+            pointers[i].x = mx;
+            pointers[i].y = my;
+            pointers[i].active = true;
+            shootTimers[i] = SHOOT_DELAY;
+        }
     });
-    canvas.addEventListener('touchend', (e) => { e.preventDefault(); isShooting = false; });
-    canvas.addEventListener('touchcancel', (e) => { e.preventDefault(); isShooting = false; });
+
     canvas.addEventListener('touchmove', (e) => {
         e.preventDefault();
         if (gameOver) return;
         const rect = canvas.getBoundingClientRect();
         const scaleX = W/rect.width;
         const scaleY = H/rect.height;
-        const t = e.touches[0];
-        let mx = (t.clientX - rect.left)*scaleX;
-        let my = (t.clientY - rect.top)*scaleY;
-        mx = Math.min(W, Math.max(0, mx));
-        my = Math.min(H, Math.max(0, my));
-        player.x = mx;
-        player.y = my;
+        for (let i=0; i<Math.min(e.touches.length, 2); i++) {
+            const touch = e.touches[i];
+            let mx = (touch.clientX - rect.left)*scaleX;
+            let my = (touch.clientY - rect.top)*scaleY;
+            mx = Math.min(W, Math.max(0, mx));
+            my = Math.min(H, Math.max(0, my));
+            pointers[i].x = mx;
+            pointers[i].y = my;
+            pointers[i].active = true;
+        }
+        for (let i=e.touches.length; i<2; i++) {
+            pointers[i].active = false;
+        }
     }, { passive: false });
+
+    canvas.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        for (let i=0; i<2; i++) {
+            pointers[i].active = false;
+        }
+        for (let i=0; i<Math.min(e.touches.length, 2); i++) {
+            pointers[i].active = true;
+        }
+    });
+
+    canvas.addEventListener('touchcancel', (e) => {
+        e.preventDefault();
+        for (let i=0; i<2; i++) {
+            pointers[i].active = false;
+        }
+    });
 
     document.getElementById('restartBtn').addEventListener('click', restartGame);
     bombBtn.addEventListener('click', triggerBomb);
@@ -728,10 +756,10 @@
     // ---- START ----
     restartGame();
     gameLoop();
-    console.log('👻 NIGHT SHOOTER || BOM MULTI || 👻');
-    console.log('💥 Dapat 1 bom setiap 30 poin');
-    console.log('💣 Bisa ditumpuk sampai 5 bom');
-    console.log('☣︎ Klik LEDAKIN untuk meledakkan semua musuh (poin x2)');
+    console.log('👻 NIGHT SHOOTER || 2 JARI + BOM MULTI || 👻');
+    console.log('✅ 2 jari tembak bersamaan');
+    console.log('💥 Dapat bom tiap 30 poin (max 5)');
+    console.log('☣︎ Klik LEDAKIN untuk ledakkan semua musuh');
 </script>
 </body>
 </html>
