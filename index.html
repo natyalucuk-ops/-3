@@ -47,7 +47,7 @@
 
 <script>
     // ============================================================
-    //  NIGHT SHOOTER — 2 TOMBOL TERPISAH (BOM + FREEZE)
+    //  NIGHT SHOOTER — FREEZE 5 DETIK (Musuh Berhenti Total)
     // ============================================================
 
     const canvas = document.getElementById('gameCanvas');
@@ -81,21 +81,20 @@
     let nextBombScore = BOMB_INTERVAL;
     let bombActive = false;
 
-    // ---- FREEZE ----
+    // ---- FREEZE (5 DETIK) ----
     let freezeActive = false;
     let freezeTimer = 0;
-    const FREEZE_DURATION = 180;
+    const FREEZE_DURATION = 300; // 5 detik (60 FPS)
     let freezeCooldown = 0;
-    const FREEZE_COOLDOWN = 420;
+    const FREEZE_COOLDOWN = 420; // 7 detik (60 FPS)
     let freezeReady = true;
 
     // ---- PARAMETER ----
     function getSpawnDelay() {
-        if (freezeActive) return Math.max(8, 28 - level * 1.2) * 10;
+        if (freezeActive) return 999; // Saat freeze, musuh berhenti spawn
         return Math.max(8, 28 - level * 1.2);
     }
     function getEnemySpeed() {
-        if (freezeActive) return 0.15;
         return Math.min(4.0, 1.0 + level * 0.2);
     }
     function getMaxEnemies() { return Math.min(25, 6 + level * 2); }
@@ -212,7 +211,7 @@
 
     // ---- SPAWN ----
     function spawnEnemy() {
-        if (gameOver) return;
+        if (gameOver || freezeActive) return; // JANGAN SPAWN SAAT FREEZE
         const maxEnemies = getMaxEnemies();
         if (enemies.length >= maxEnemies) return;
         const x = 30 + Math.random() * (W - 60);
@@ -381,7 +380,7 @@
         updateUI();
     }
 
-    // ---- FREEZE ----
+    // ---- FREEZE (5 DETIK) ----
     function triggerFreeze() {
         if (!freezeReady || freezeActive || gameOver) return;
         freezeReady = false;
@@ -390,27 +389,34 @@
         freezeCooldown = 0;
         freezeBtn.disabled = true;
         freezeBtn.textContent = '❄️ ...';
-        for (let j=0; j<40; j++) {
+        freezeSpan.textContent = '⏳';
+        freezeSpan.style.color = '#66ccff';
+        
+        // Efek es (lebih banyak)
+        for (let j=0; j<60; j++) {
             const a = Math.random()*2*Math.PI;
-            const s = 2 + Math.random()*8;
+            const s = 2 + Math.random()*10;
             particles.push({
-                x: 450 + (Math.random()-0.5)*500,
-                y: 200 + Math.random()*350,
-                vx: Math.cos(a)*s * 0.3,
-                vy: Math.sin(a)*s * 0.3 - 0.5,
-                life: 1.5,
-                decay: 0.008 + Math.random()*0.015,
-                radius: 4 + Math.random()*12,
+                x: 450 + (Math.random()-0.5)*600,
+                y: 200 + Math.random()*400,
+                vx: Math.cos(a)*s * 0.2,
+                vy: Math.sin(a)*s * 0.2 - 0.3,
+                life: 2,
+                decay: 0.008 + Math.random()*0.01,
+                radius: 4 + Math.random()*14,
                 color: `hsla(200, 80%, ${70 + Math.random()*25}%, 0.8)`,
             });
         }
-        updateUI();
+
+        // Otomatis mati setelah 5 detik
         setTimeout(() => {
             freezeActive = false;
             freezeReady = false;
             freezeCooldown = 0;
             freezeBtn.textContent = '❄️ ...';
             freezeBtn.disabled = true;
+            freezeSpan.textContent = '⏳';
+            freezeSpan.style.color = '#ff8844';
             updateUI();
         }, FREEZE_DURATION / 60 * 1000);
     }
@@ -426,9 +432,10 @@
         bombBtn.style.color = bombCount > 0 ? '#ff8844' : '#665544';
 
         if (freezeActive) {
-            freezeSpan.textContent = '❄️';
+            const remaining = Math.ceil((FREEZE_DURATION - freezeTimer) / 60);
+            freezeSpan.textContent = `❄️ ${remaining}s`;
             freezeSpan.style.color = '#66ccff';
-            freezeBtn.textContent = '❄️ ACTIVE';
+            freezeBtn.textContent = `❄️ ${remaining}s`;
             freezeBtn.disabled = true;
         } else if (freezeReady) {
             freezeSpan.textContent = '✓';
@@ -439,7 +446,7 @@
             const remaining = Math.ceil(freezeCooldown / 60);
             freezeSpan.textContent = `${remaining}s`;
             freezeSpan.style.color = '#ff8844';
-            freezeBtn.textContent = `❄️ ${remaining}s`;
+            freezeBtn.textContent = `⏳ ${remaining}s`;
             freezeBtn.disabled = true;
         }
     }
@@ -471,6 +478,18 @@
         frame++;
         if (gameOver) return;
 
+        // ---- FREEZE TIMER ----
+        if (freezeActive) {
+            freezeTimer++;
+            if (freezeTimer % 60 === 0) updateUI();
+            if (freezeTimer >= FREEZE_DURATION) {
+                freezeActive = false;
+                freezeReady = false;
+                freezeCooldown = 0;
+                updateUI();
+            }
+        }
+
         // ---- FREEZE COOLDOWN ----
         if (!freezeReady && !freezeActive) {
             freezeCooldown++;
@@ -495,22 +514,36 @@
             }
         }
 
-        const spawnDelay = getSpawnDelay();
-        const extraChance = getSpawnExtraChance();
-        spawnCounter++;
-        if (spawnCounter >= spawnDelay) {
-            spawnCounter = 0;
-            spawnEnemy();
-            if (Math.random() < extraChance) spawnEnemy();
-            if (level > 3 && Math.random() < extraChance * 0.7) spawnEnemy();
-            if (level > 7 && Math.random() < extraChance * 0.5) spawnEnemy();
+        // ---- SPAWN (TAPI JIKA FREEZE AKTIF, TIDAK SPAWN) ----
+        if (!freezeActive) {
+            const spawnDelay = getSpawnDelay();
+            const extraChance = getSpawnExtraChance();
+            spawnCounter++;
+            if (spawnCounter >= spawnDelay) {
+                spawnCounter = 0;
+                spawnEnemy();
+                if (Math.random() < extraChance) spawnEnemy();
+                if (level > 3 && Math.random() < extraChance * 0.7) spawnEnemy();
+                if (level > 7 && Math.random() < extraChance * 0.5) spawnEnemy();
+            }
         }
 
+        // ---- GERAKKAN MUSUH (BERHENTI SAAT FREEZE) ----
         for (let i=enemies.length-1; i>=0; i--) {
             const e = enemies[i];
-            e.x += e.vx + Math.sin(frame * 0.05 + e.phase) * e.wiggle * 0.8;
-            e.y += e.vy;
-            e.x += Math.sin(frame * 0.03 * e.floatSpeed + e.phase) * e.floatAmp * 0.2;
+            
+            if (!freezeActive) {
+                // NORMAL: bergerak seperti biasa
+                e.x += e.vx + Math.sin(frame * 0.05 + e.phase) * e.wiggle * 0.8;
+                e.y += e.vy;
+                e.x += Math.sin(frame * 0.03 * e.floatSpeed + e.phase) * e.floatAmp * 0.2;
+            } else {
+                // FREEZE: DIAM (hanya efek float kecil biar keliatan masih hidup)
+                e.x += Math.sin(frame * 0.01 + e.phase) * 0.03;
+                e.y += Math.sin(frame * 0.015 + e.phase * 1.3) * 0.03;
+                // TAPI JANGAN UPDATE POSISI BERAT
+            }
+
             if (e.y <= 30) {
                 health--;
                 updateUI();
@@ -537,6 +570,7 @@
                 }
                 continue;
             }
+
             if (e.x < -80 || e.x > W + 80) {
                 e.x = 30 + Math.random() * (W - 60);
                 e.y = H + 20 + Math.random() * 30;
@@ -785,9 +819,11 @@
     // ---- START ----
     restartGame();
     gameLoop();
-    console.log('👻 NIGHT SHOOTER || 2 TOMBOL (BOM + FREEZE) || 👻');
-    console.log('💥 Tombol BOM: merah/oranye');
-    console.log('❄️ Tombol FREEZE: biru');
+    console.log('👻 NIGHT SHOOTER || FREEZE 5 DETIK (FIX) || 👻');
+    console.log('❄️ Musuh BERHENTI TOTAL saat freeze');
+    console.log('⏱️ Durasi freeze: 5 detik');
+    console.log('⏳ Cooldown: 7 detik');
+    console.log('🚫 Musuh TIDAK SPAWN saat freeze');
 </script>
 </body>
 </html>
