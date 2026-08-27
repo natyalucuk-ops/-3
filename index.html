@@ -22,12 +22,11 @@
         .bomb-btn { background: #4a1a0a; border: 2px solid #ff6633; color: #ff8844; padding: 6px 20px; border-radius: 40px; font-family: 'Courier New', monospace; font-weight: bold; font-size: 16px; cursor: pointer; transition: 0.25s; animation: pulse 1s infinite; }
         .bomb-btn:hover { background: #6a2a1a; color: #ffaa66; border-color: #ff8844; transform: scale(1.05); }
         .bomb-btn:disabled { opacity: 0.4; cursor: not-allowed; animation: none; }
-        .freeze-btn { background: #0a1a2a; border: 2px solid #44aaff; color: #66ccff; padding: 6px 20px; border-radius: 40px; font-family: 'Courier New', monospace; font-weight: bold; font-size: 16px; cursor: pointer; transition: 0.25s; }
+        .freeze-btn { background: #0a1a2a; border: 2px solid #44aaff; color: #66ccff; padding: 6px 20px; border-radius: 40px; font-family: 'Courier New', monospace; font-weight: bold; font-size: 16px; cursor: pointer; transition: 0.25s; animation: freezePulse 1s infinite; }
         .freeze-btn:hover { background: #1a2a3a; color: #88ddff; border-color: #66ccff; transform: scale(1.05); }
         .freeze-btn:disabled { opacity: 0.4; cursor: not-allowed; animation: none; }
         @keyframes pulse { 0%, 100% { box-shadow: 0 0 10px rgba(255, 100, 0, 0.3); } 50% { box-shadow: 0 0 30px rgba(255, 100, 0, 0.6); } }
         @keyframes freezePulse { 0%, 100% { box-shadow: 0 0 10px rgba(100, 200, 255, 0.3); } 50% { box-shadow: 0 0 30px rgba(100, 200, 255, 0.6); } }
-        .freeze-btn.active { animation: freezePulse 1s infinite; }
         @media (max-width: 960px) { .game-wrapper { padding: 10px; } #gameCanvas { width: 100%; height: auto; aspect-ratio: 900/600; } .ui-bar { font-size: 13px; justify-content: center; } }
     </style>
 </head>
@@ -39,17 +38,16 @@
         <div class="ui-box">❯❯❯ LEVEL <span id="levelDisplay">1</span></div>
         <div class="ui-box">⛨ HEALTH <span id="healthDisplay">7</span></div>
         <div class="ui-box">💥 BOM <span id="bombDisplay">0</span></div>
-        <div class="ui-box">❄️ FREEZE <span id="freezeDisplay">✓</span></div>
-        <button class="freeze-btn" id="freezeBtn">❄️ FREEZE</button>
+        <div class="ui-box">❄️ <span id="freezeDisplay">✓</span></div>
         <button class="bomb-btn" id="bombBtn">☣︎ LEDAKIN</button>
+        <button class="freeze-btn" id="freezeBtn">❄️ FREEZE</button>
         <button class="restart-btn" id="restartBtn">↻ RESPAWN</button>
     </div>
 </div>
 
 <script>
     // ============================================================
-    //  NIGHT SHOOTER — 2 JARI + BOM MULTI + TIME FREEZE
-    //  Freeze cooldown 7 detik, durasi 3 detik
+    //  NIGHT SHOOTER — 2 TOMBOL TERPISAH (BOM + FREEZE)
     // ============================================================
 
     const canvas = document.getElementById('gameCanvas');
@@ -76,19 +74,19 @@
     let shootTimers = [0, 0];
     const SHOOT_DELAY = 6;
 
-    // ---- BOM MULTI ----
+    // ---- BOM ----
     let bombCount = 0;
     const MAX_BOMB = 5;
     const BOMB_INTERVAL = 30;
     let nextBombScore = BOMB_INTERVAL;
     let bombActive = false;
 
-    // ---- TIME FREEZE ----
+    // ---- FREEZE ----
     let freezeActive = false;
     let freezeTimer = 0;
-    const FREEZE_DURATION = 180; // 3 detik (60 FPS)
+    const FREEZE_DURATION = 180;
     let freezeCooldown = 0;
-    const FREEZE_COOLDOWN = 420; // 7 detik (60 FPS)
+    const FREEZE_COOLDOWN = 420;
     let freezeReady = true;
 
     // ---- PARAMETER ----
@@ -100,15 +98,9 @@
         if (freezeActive) return 0.15;
         return Math.min(4.0, 1.0 + level * 0.2);
     }
-    function getMaxEnemies() {
-        return Math.min(25, 6 + level * 2);
-    }
-    function getBulletSpeed() {
-        return Math.min(18, 12 + level * 0.4);
-    }
-    function getSpawnExtraChance() {
-        return Math.min(0.4, 0.08 + level * 0.025);
-    }
+    function getMaxEnemies() { return Math.min(25, 6 + level * 2); }
+    function getBulletSpeed() { return Math.min(18, 12 + level * 0.4); }
+    function getSpawnExtraChance() { return Math.min(0.4, 0.08 + level * 0.025); }
 
     // ---- BACKGROUND ----
     const buildings = [
@@ -181,9 +173,7 @@
         ctx.fillText(`⚡ ${Math.round(getEnemySpeed()*10)/10}`, 20, 580);
         ctx.fillText(`👻 ${enemies.length}/${Math.round(getMaxEnemies())}`, 120, 580);
         ctx.fillText(`💣 ${bombCount}`, 220, 580);
-        ctx.fillText(`❄️ ${freezeReady ? 'SIAP' : Math.ceil(freezeCooldown/60)+'s'}`, 300, 580);
 
-        // ---- BOM OVERLAY ----
         if (bombActive) {
             ctx.fillStyle = 'rgba(255, 100, 0, 0.08)';
             ctx.fillRect(0, 0, W, H);
@@ -197,7 +187,6 @@
             ctx.textAlign = 'left';
         }
 
-        // ---- FREEZE OVERLAY ----
         if (freezeActive) {
             ctx.fillStyle = 'rgba(100, 200, 255, 0.08)';
             ctx.fillRect(0, 0, W, H);
@@ -207,7 +196,6 @@
             ctx.shadowBlur = 40;
             ctx.shadowColor = '#0088ff';
             ctx.fillText('❄️ TIME FREEZE!', 450, 200);
-            // Animasi kristal es
             for (let i=0; i<12; i++) {
                 const angle = i/12 * Math.PI*2 + frame*0.02;
                 const dist = 120 + Math.sin(frame*0.05 + i)*25;
@@ -222,18 +210,15 @@
         }
     }
 
-    // ---- SPAWN MUSUH ----
+    // ---- SPAWN ----
     function spawnEnemy() {
         if (gameOver) return;
         const maxEnemies = getMaxEnemies();
         if (enemies.length >= maxEnemies) return;
-
         const x = 30 + Math.random() * (W - 60);
         const y = H + 20 + Math.random() * 30;
-
         const speed = getEnemySpeed() * (0.85 + Math.random() * 0.3);
         const angle = -Math.PI/2 + (Math.random() - 0.5) * 0.5;
-
         enemies.push({
             x, y,
             vx: Math.cos(angle) * speed * 0.35,
@@ -247,14 +232,13 @@
         });
     }
 
-    // ---- TEMBAK DARI POINTER ----
+    // ---- TEMBAK ----
     function shootFromPointer(index) {
         if (gameOver) return;
         const p = pointers[index];
         if (!p.active) return;
         const mx = p.x, my = p.y;
         screenShake = 2;
-
         for (let i=0; i<4; i++) {
             const a = Math.random()*2*Math.PI;
             const d = 2 + Math.random()*8;
@@ -268,7 +252,6 @@
                 color: `hsl(35, 95%, 70%)`,
             });
         }
-
         const bulletSpeed = getBulletSpeed();
         bullets.push({
             x: mx,
@@ -276,16 +259,13 @@
             vy: -bulletSpeed,
             radius: 5,
             life: 1,
-            from: index,
         });
-
         for (let i=enemies.length-1; i>=0; i--) {
             const e = enemies[i];
             const dist = Math.hypot(mx - e.x, my - e.y);
             if (dist < e.radius * 0.6 + 12) {
                 let pointGain = 1;
                 if (bombActive) pointGain = 2;
-
                 for (let j=0; j<12; j++) {
                     const a = Math.random()*2*Math.PI;
                     const s = 2 + Math.random()*5;
@@ -310,16 +290,13 @@
         }
     }
 
-    // ---- BOM MULTI ----
+    // ---- BOM ----
     function triggerBomb() {
         if (bombCount <= 0 || gameOver || bombActive) return;
-
         bombActive = true;
         bombCount--;
         bombBtn.disabled = true;
-        updateBombUI();
         screenShake = 12;
-
         const cx = 450, cy = 300;
         for (let j=0; j<80; j++) {
             const a = Math.random()*2*Math.PI;
@@ -335,7 +312,6 @@
                 color: `hsla(30, 100%, ${50 + Math.random()*40}%, 0.9)`,
             });
         }
-
         let killed = 0;
         for (let i=enemies.length-1; i>=0; i--) {
             const e = enemies[i];
@@ -356,7 +332,6 @@
             score += 2;
             enemies.splice(i, 1);
         }
-
         if (killed > 0) {
             score += Math.floor(killed / 2);
             for (let i=0; i<8; i++) {
@@ -372,16 +347,14 @@
                 });
             }
         }
-
         const newLevel = Math.floor(score/8) + 1;
         if (newLevel > level) level = newLevel;
         checkBombReward();
         updateUI();
-
         setTimeout(() => {
             bombActive = false;
             bombBtn.disabled = (bombCount <= 0);
-            updateBombUI();
+            updateUI();
         }, 2000);
     }
 
@@ -403,20 +376,12 @@
                     color: `hsla(30, 100%, ${60 + Math.random()*30}%, 0.8)`,
                 });
             }
-            updateBombUI();
         }
         bombBtn.disabled = (bombCount <= 0 || bombActive);
-        updateBombUI();
+        updateUI();
     }
 
-    function updateBombUI() {
-        bombSpan.textContent = bombCount;
-        bombBtn.disabled = (bombCount <= 0 || bombActive);
-        bombBtn.style.borderColor = bombCount > 0 ? '#ff8844' : '#4a2a1a';
-        bombBtn.style.color = bombCount > 0 ? '#ff8844' : '#665544';
-    }
-
-    // ---- TIME FREEZE ----
+    // ---- FREEZE ----
     function triggerFreeze() {
         if (!freezeReady || freezeActive || gameOver) return;
         freezeReady = false;
@@ -425,10 +390,6 @@
         freezeCooldown = 0;
         freezeBtn.disabled = true;
         freezeBtn.textContent = '❄️ ...';
-        freezeSpan.textContent = '⏳';
-        freezeSpan.style.color = '#66ccff';
-
-        // Efek es
         for (let j=0; j<40; j++) {
             const a = Math.random()*2*Math.PI;
             const s = 2 + Math.random()*8;
@@ -443,30 +404,37 @@
                 color: `hsla(200, 80%, ${70 + Math.random()*25}%, 0.8)`,
             });
         }
-
-        // Otomatis mati setelah 3 detik
+        updateUI();
         setTimeout(() => {
             freezeActive = false;
             freezeReady = false;
             freezeCooldown = 0;
-            freezeSpan.textContent = '⏳';
-            freezeSpan.style.color = '#ff8844';
             freezeBtn.textContent = '❄️ ...';
             freezeBtn.disabled = true;
+            updateUI();
         }, FREEZE_DURATION / 60 * 1000);
     }
 
-    function updateFreezeUI() {
-        if (freezeReady && !freezeActive) {
-            freezeSpan.textContent = '✓';
-            freezeSpan.style.color = '#66ccff';
-            freezeBtn.textContent = '❄️ FREEZE';
-            freezeBtn.disabled = false;
-        } else if (freezeActive) {
+    function updateUI() {
+        scoreSpan.textContent = score;
+        healthSpan.textContent = health;
+        levelSpan.textContent = level;
+        bombSpan.textContent = bombCount;
+        bombBtn.disabled = (bombCount <= 0 || bombActive);
+        bombBtn.textContent = bombActive ? '💥 BOOM!' : '☣︎ LEDAKIN';
+        bombBtn.style.borderColor = bombCount > 0 ? '#ff8844' : '#4a2a1a';
+        bombBtn.style.color = bombCount > 0 ? '#ff8844' : '#665544';
+
+        if (freezeActive) {
             freezeSpan.textContent = '❄️';
             freezeSpan.style.color = '#66ccff';
             freezeBtn.textContent = '❄️ ACTIVE';
             freezeBtn.disabled = true;
+        } else if (freezeReady) {
+            freezeSpan.textContent = '✓';
+            freezeSpan.style.color = '#66ccff';
+            freezeBtn.textContent = '❄️ FREEZE';
+            freezeBtn.disabled = false;
         } else {
             const remaining = Math.ceil(freezeCooldown / 60);
             freezeSpan.textContent = `${remaining}s`;
@@ -474,14 +442,6 @@
             freezeBtn.textContent = `❄️ ${remaining}s`;
             freezeBtn.disabled = true;
         }
-    }
-
-    function updateUI() {
-        scoreSpan.textContent = score;
-        healthSpan.textContent = health;
-        levelSpan.textContent = level;
-        updateBombUI();
-        updateFreezeUI();
     }
 
     function restartGame() {
@@ -494,16 +454,15 @@
         bombCount = 0;
         nextBombScore = BOMB_INTERVAL;
         bombActive = false;
-        bombBtn.disabled = true;
         freezeActive = false;
         freezeTimer = 0;
         freezeCooldown = 0;
         freezeReady = true;
+        bombBtn.disabled = true;
         freezeBtn.disabled = false;
         freezeBtn.textContent = '❄️ FREEZE';
         freezeSpan.textContent = '✓';
         freezeSpan.style.color = '#66ccff';
-        updateBombUI();
         updateUI();
     }
 
@@ -517,9 +476,9 @@
             freezeCooldown++;
             if (freezeCooldown >= FREEZE_COOLDOWN) {
                 freezeReady = true;
-                updateFreezeUI();
+                updateUI();
             } else {
-                updateFreezeUI();
+                updateUI();
             }
         }
 
@@ -538,7 +497,6 @@
 
         const spawnDelay = getSpawnDelay();
         const extraChance = getSpawnExtraChance();
-
         spawnCounter++;
         if (spawnCounter >= spawnDelay) {
             spawnCounter = 0;
@@ -550,11 +508,9 @@
 
         for (let i=enemies.length-1; i>=0; i--) {
             const e = enemies[i];
-            
             e.x += e.vx + Math.sin(frame * 0.05 + e.phase) * e.wiggle * 0.8;
             e.y += e.vy;
             e.x += Math.sin(frame * 0.03 * e.floatSpeed + e.phase) * e.floatAmp * 0.2;
-
             if (e.y <= 30) {
                 health--;
                 updateUI();
@@ -581,7 +537,6 @@
                 }
                 continue;
             }
-
             if (e.x < -80 || e.x > W + 80) {
                 e.x = 30 + Math.random() * (W - 60);
                 e.y = H + 20 + Math.random() * 30;
@@ -596,9 +551,7 @@
             const b = bullets[i];
             b.y += b.vy;
             b.life -= 0.025;
-            if (b.y < -20 || b.life <= 0) {
-                bullets.splice(i, 1);
-            }
+            if (b.y < -20 || b.life <= 0) bullets.splice(i, 1);
         }
 
         for (let i=particles.length-1; i>=0; i--) {
@@ -622,12 +575,8 @@
         ctx.save();
         if (screenShake > 0.3) {
             const intensity = screenShake * 0.6;
-            ctx.translate(
-                (Math.random() - 0.5) * intensity,
-                (Math.random() - 0.5) * intensity
-            );
+            ctx.translate((Math.random()-0.5)*intensity, (Math.random()-0.5)*intensity);
         }
-
         drawBackground();
 
         for (const b of bullets) {
@@ -668,14 +617,12 @@
             ctx.beginPath();
             ctx.arc(e.x, e.y, r*1.6, 0, Math.PI*2);
             ctx.fill();
-
             ctx.shadowBlur = 25;
             ctx.shadowColor = 'rgba(100,150,255,0.4)';
             ctx.fillStyle = `hsla(210, 70%, 70%, ${e.alpha*0.5})`;
             ctx.beginPath();
             ctx.arc(e.x, e.y, r, 0, Math.PI*2);
             ctx.fill();
-
             ctx.fillStyle = `hsla(210, 70%, 70%, ${e.alpha*0.35})`;
             ctx.shadowBlur = 15;
             ctx.beginPath();
@@ -688,7 +635,6 @@
             ctx.lineTo(e.x + r*0.4, e.y - r*0.3);
             ctx.closePath();
             ctx.fill();
-
             ctx.shadowBlur = 20;
             ctx.shadowColor = '#ff3333';
             ctx.fillStyle = '#ff1a1a';
@@ -701,56 +647,48 @@
             ctx.shadowBlur = 0;
         }
 
-        // ---- 2 POINTER (CROSSHAIR) ----
+        // ---- 2 POINTER ----
         for (let i=0; i<2; i++) {
             const p = pointers[i];
             const px = p.x, py = p.y;
-
-            const color1 = i === 0 ? 'rgba(255, 200, 150, 0.85)' : 'rgba(100, 200, 255, 0.85)';
-            const color2 = i === 0 ? 'rgba(255, 100, 80, 0.9)' : 'rgba(80, 180, 255, 0.9)';
+            const color1 = i === 0 ? 'rgba(255,200,150,0.85)' : 'rgba(100,200,255,0.85)';
+            const color2 = i === 0 ? 'rgba(255,100,80,0.9)' : 'rgba(80,180,255,0.9)';
             const shadowColor = i === 0 ? '#ff4400' : '#0088ff';
-
             ctx.shadowBlur = 20;
             ctx.shadowColor = shadowColor;
             ctx.strokeStyle = color1;
             ctx.lineWidth = 2;
             ctx.beginPath();
-            ctx.arc(px, py, p.radius + 8, 0, Math.PI * 2);
+            ctx.arc(px, py, p.radius + 8, 0, Math.PI*2);
             ctx.stroke();
-
             ctx.shadowBlur = 15;
             ctx.strokeStyle = color2;
             ctx.lineWidth = 2;
             ctx.beginPath();
-            ctx.arc(px, py, p.radius + 2, 0, Math.PI * 2);
+            ctx.arc(px, py, p.radius + 2, 0, Math.PI*2);
             ctx.stroke();
-
             ctx.shadowBlur = 12;
             ctx.strokeStyle = color1;
             ctx.lineWidth = 2;
             const s = 16;
             ctx.beginPath();
-            ctx.moveTo(px - s, py);
-            ctx.lineTo(px + s, py);
-            ctx.moveTo(px, py - s);
-            ctx.lineTo(px, py + s);
+            ctx.moveTo(px-s, py); ctx.lineTo(px+s, py);
+            ctx.moveTo(px, py-s); ctx.lineTo(px, py+s);
             ctx.stroke();
-
             ctx.shadowBlur = 25;
             ctx.shadowColor = shadowColor;
             ctx.fillStyle = i === 0 ? '#ff3333' : '#33bbff';
             ctx.beginPath();
-            ctx.arc(px, py, 4, 0, Math.PI * 2);
+            ctx.arc(px, py, 4, 0, Math.PI*2);
             ctx.fill();
-
             ctx.shadowBlur = 0;
         }
 
         const activeCount = pointers.filter(p => p.active).length;
-        ctx.fillStyle = 'rgba(255, 200, 100, 0.2)';
+        ctx.fillStyle = 'rgba(255,200,100,0.2)';
         ctx.font = '12px monospace';
         ctx.textAlign = 'center';
-        ctx.fillText(`👆 ${activeCount} jari | 💣 ${bombCount} | ❄️ ${freezeReady ? 'SIAP' : Math.ceil(freezeCooldown/60)+'s'}`, 450, 580);
+        ctx.fillText(`👆 ${activeCount} jari | 💣 ${bombCount}`, 450, 580);
         ctx.textAlign = 'left';
 
         if (gameOver) {
@@ -784,88 +722,60 @@
     canvas.addEventListener('mousedown', (e) => {
         if (gameOver) return;
         const rect = canvas.getBoundingClientRect();
-        const scaleX = W/rect.width;
-        const scaleY = H/rect.height;
-        let mx = (e.clientX - rect.left)*scaleX;
-        let my = (e.clientY - rect.top)*scaleY;
-        mx = Math.min(W, Math.max(0, mx));
-        my = Math.min(H, Math.max(0, my));
-        pointers[0].x = mx;
-        pointers[0].y = my;
+        const scaleX = W/rect.width, scaleY = H/rect.height;
+        let mx = (e.clientX - rect.left)*scaleX, my = (e.clientY - rect.top)*scaleY;
+        mx = Math.min(W, Math.max(0, mx)); my = Math.min(H, Math.max(0, my));
+        pointers[0].x = mx; pointers[0].y = my;
         pointers[0].active = true;
         shootTimers[0] = SHOOT_DELAY;
     });
     canvas.addEventListener('mouseup', () => { pointers[0].active = false; });
     canvas.addEventListener('mouseleave', () => { pointers[0].active = false; });
-
     canvas.addEventListener('mousemove', (e) => {
         if (gameOver) return;
         const rect = canvas.getBoundingClientRect();
-        const scaleX = W/rect.width;
-        const scaleY = H/rect.height;
-        let mx = (e.clientX - rect.left)*scaleX;
-        let my = (e.clientY - rect.top)*scaleY;
-        mx = Math.min(W, Math.max(0, mx));
-        my = Math.min(H, Math.max(0, my));
-        pointers[0].x = mx;
-        pointers[0].y = my;
+        const scaleX = W/rect.width, scaleY = H/rect.height;
+        let mx = (e.clientX - rect.left)*scaleX, my = (e.clientY - rect.top)*scaleY;
+        mx = Math.min(W, Math.max(0, mx)); my = Math.min(H, Math.max(0, my));
+        pointers[0].x = mx; pointers[0].y = my;
     });
 
     canvas.addEventListener('touchstart', (e) => {
         e.preventDefault();
         if (gameOver) return;
         const rect = canvas.getBoundingClientRect();
-        const scaleX = W/rect.width;
-        const scaleY = H/rect.height;
+        const scaleX = W/rect.width, scaleY = H/rect.height;
         for (let i=0; i<Math.min(e.touches.length, 2); i++) {
             const touch = e.touches[i];
-            let mx = (touch.clientX - rect.left)*scaleX;
-            let my = (touch.clientY - rect.top)*scaleY;
-            mx = Math.min(W, Math.max(0, mx));
-            my = Math.min(H, Math.max(0, my));
-            pointers[i].x = mx;
-            pointers[i].y = my;
+            let mx = (touch.clientX - rect.left)*scaleX, my = (touch.clientY - rect.top)*scaleY;
+            mx = Math.min(W, Math.max(0, mx)); my = Math.min(H, Math.max(0, my));
+            pointers[i].x = mx; pointers[i].y = my;
             pointers[i].active = true;
             shootTimers[i] = SHOOT_DELAY;
         }
     });
-
     canvas.addEventListener('touchmove', (e) => {
         e.preventDefault();
         if (gameOver) return;
         const rect = canvas.getBoundingClientRect();
-        const scaleX = W/rect.width;
-        const scaleY = H/rect.height;
+        const scaleX = W/rect.width, scaleY = H/rect.height;
         for (let i=0; i<Math.min(e.touches.length, 2); i++) {
             const touch = e.touches[i];
-            let mx = (touch.clientX - rect.left)*scaleX;
-            let my = (touch.clientY - rect.top)*scaleY;
-            mx = Math.min(W, Math.max(0, mx));
-            my = Math.min(H, Math.max(0, my));
-            pointers[i].x = mx;
-            pointers[i].y = my;
+            let mx = (touch.clientX - rect.left)*scaleX, my = (touch.clientY - rect.top)*scaleY;
+            mx = Math.min(W, Math.max(0, mx)); my = Math.min(H, Math.max(0, my));
+            pointers[i].x = mx; pointers[i].y = my;
             pointers[i].active = true;
         }
-        for (let i=e.touches.length; i<2; i++) {
-            pointers[i].active = false;
-        }
+        for (let i=e.touches.length; i<2; i++) pointers[i].active = false;
     }, { passive: false });
-
     canvas.addEventListener('touchend', (e) => {
         e.preventDefault();
-        for (let i=0; i<2; i++) {
-            pointers[i].active = false;
-        }
-        for (let i=0; i<Math.min(e.touches.length, 2); i++) {
-            pointers[i].active = true;
-        }
+        for (let i=0; i<2; i++) pointers[i].active = false;
+        for (let i=0; i<Math.min(e.touches.length, 2); i++) pointers[i].active = true;
     });
-
     canvas.addEventListener('touchcancel', (e) => {
         e.preventDefault();
-        for (let i=0; i<2; i++) {
-            pointers[i].active = false;
-        }
+        for (let i=0; i<2; i++) pointers[i].active = false;
     });
 
     document.getElementById('restartBtn').addEventListener('click', restartGame);
@@ -875,10 +785,9 @@
     // ---- START ----
     restartGame();
     gameLoop();
-    console.log('👻 NIGHT SHOOTER || 2 JARI + BOM + FREEZE || 👻');
-    console.log('✅ 2 jari tembak bersamaan');
-    console.log('💥 Bom tiap 30 poin (max 5)');
-    console.log('❄️ Freeze cooldown 7 detik, durasi 3 detik');
+    console.log('👻 NIGHT SHOOTER || 2 TOMBOL (BOM + FREEZE) || 👻');
+    console.log('💥 Tombol BOM: merah/oranye');
+    console.log('❄️ Tombol FREEZE: biru');
 </script>
 </body>
 </html>
