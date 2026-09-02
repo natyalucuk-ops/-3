@@ -103,9 +103,9 @@
 <div class="game-wrapper" id="gameWrapper">
     <!-- OVERLAY START -->
     <div id="startOverlay">
-        <h1>👻 NIGHT SHOOTER</h1>
+        <h1>👻 NIGHT SHOOTER 👻</h1>
         <p>Punya Jyo, jangan diambil 😡</p>
-        <div class="highscore-start">🏆 HIGHSCORE: <span id="highscoreStartDisplay">0</span></div>
+        <div class="highscore-start">♕ HIGHSCORE: <span id="highscoreStartDisplay">0</span></div>
         <button id="startBtn">▶ GASS</button>
     </div>
 
@@ -115,9 +115,9 @@
         <div class="ui-box">♕ HIGHSCORE <span id="highscoreDisplay">0</span></div>
         <div class="ui-box">❯❯❯ LEVEL <span id="levelDisplay">1</span></div>
         <div class="ui-box">⛨ HEALTH <span id="healthDisplay">7</span></div>
-        <div class="ui-box">💥 BOM <span id="bombDisplay">0</span></div>
+        <div class="ui-box">☣︎ BOM <span id="bombDisplay">0</span></div>
         <button class="bomb-btn hidden" id="bombBtn">☣︎ LEDAKIN</button>
-        <button class="freeze-btn hidden" id="freezeBtn">❄️ FREEZE</button>
+        <button class="freeze-btn hidden" id="freezeBtn">❆ FREEZE</button>
         <button class="restart-btn" id="restartBtn">↻ RESPAWN</button>
     </div>
 </div>
@@ -269,7 +269,7 @@
             ctx.fillStyle = '#ff8833';
             ctx.shadowBlur = 40;
             ctx.shadowColor = '#ff4400';
-            ctx.fillText('💥 BOM AKTIF! Poin x2!', 450, 150);
+            ctx.fillText('☣︎ BOM AKTIF! Poin x2!', 450, 150);
             ctx.shadowBlur = 0;
             ctx.textAlign = 'left';
         }
@@ -282,7 +282,7 @@
             ctx.fillStyle = '#66ccff';
             ctx.shadowBlur = 40;
             ctx.shadowColor = '#0088ff';
-            ctx.fillText('❄️ TIME FREEZE!', 450, 200);
+            ctx.fillText('❆ BEKUUU!', 450, 200);
             for (let i=0; i<12; i++) {
                 const angle = i/12 * Math.PI*2 + frame*0.02;
                 const dist = 120 + Math.sin(frame*0.05 + i)*25;
@@ -502,7 +502,7 @@
         freezeTimer = 0;
         freezeCooldown = 0;
         freezeBtn.disabled = true;
-        freezeBtn.textContent = '❄️ 5s';
+        freezeBtn.textContent = '❆ 5s';
         freezeBtn.className = 'freeze-btn active';
         
         for (let j=0; j<60; j++) {
@@ -525,7 +525,7 @@
             freezeReady = false;
             freezeCooldown = 0;
             freezeBtn.disabled = true;
-            freezeBtn.textContent = '⏳ 7s';
+            freezeBtn.textContent = '⌛︎ 7s';
             freezeBtn.className = 'freeze-btn cooldown';
             updateUI();
         }, FREEZE_DURATION / 60 * 1000);
@@ -541,23 +541,23 @@
         
         // BOM BUTTON
         bombBtn.disabled = (bombCount <= 0 || bombActive);
-        bombBtn.textContent = bombActive ? '💥 BOOM!' : '☣︎ LEDAKIN';
+        bombBtn.textContent = bombActive ? '☣︎ BOOM!' : '☣︎ LEDAKIN';
         bombBtn.style.borderColor = bombCount > 0 ? '#ff8844' : '#4a2a1a';
         bombBtn.style.color = bombCount > 0 ? '#ff8844' : '#665544';
 
         // FREEZE BUTTON
         if (freezeActive) {
             const remaining = Math.ceil((FREEZE_DURATION - freezeTimer) / 60);
-            freezeBtn.textContent = `❄️ ${remaining}s`;
+            freezeBtn.textContent = `❆ ${remaining}s`;
             freezeBtn.className = 'freeze-btn active';
             freezeBtn.disabled = true;
         } else if (freezeReady) {
-            freezeBtn.textContent = '❄️ FREEZE';
+            freezeBtn.textContent = '❆ FREEZE';
             freezeBtn.className = 'freeze-btn ready';
             freezeBtn.disabled = false;
         } else {
             const remaining = Math.ceil(freezeCooldown / 60);
-            freezeBtn.textContent = `⏳ ${remaining}s`;
+            freezeBtn.textContent = `⌛︎ ${remaining}s`;
             freezeBtn.className = 'freeze-btn cooldown';
             freezeBtn.disabled = true;
         }
@@ -579,7 +579,7 @@
         freezeReady = true;
         bombBtn.disabled = true;
         freezeBtn.disabled = false;
-        freezeBtn.textContent = '❄️ FREEZE';
+        freezeBtn.textContent = '❆ FREEZE';
         freezeBtn.className = 'freeze-btn ready';
         updateUI();
     }
@@ -595,7 +595,7 @@
             window._gameLoopStarted = true;
             gameLoop();
         }
-        console.log('🔥 GAME DIMULAI!');
+        console.log('🔥 AYO GASS!');
     }
 
     startBtn.addEventListener('click', startGame);
@@ -943,8 +943,8 @@
     freezeBtn.addEventListener('click', triggerFreeze);
 
     // ---- START LOOP (dipanggil saat start) ----
-    console.log('👻 NIGHT SHOOTER || Tekan GASS untuk mulai || 👻');
-    console.log(`🏆 Highscore saat ini: ${highscore}`);
+    console.log('👻 NIGHT SHOOTER 👻 || Punya Jyo pokoknya');
+    console.log(`♕ Highscore saat ini: ${highscore}`);
 </script>
 </body>
 </html>
