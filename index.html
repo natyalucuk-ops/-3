@@ -17,18 +17,20 @@
         #healthDisplay { color: #ff6a4a; font-size: 24px; margin-left: 8px; }
         #levelDisplay { color: #b0d0ff; font-size: 20px; margin-left: 8px; }
         #bombDisplay { color: #ff8844; font-size: 22px; margin-left: 8px; font-weight: bold; }
-        #freezeDisplay { color: #66ccff; font-size: 18px; margin-left: 8px; font-weight: bold; }
         .restart-btn { background: #1f100a; border: 1px solid #4a2a1a; color: #d0b8a0; padding: 6px 24px; border-radius: 40px; font-family: 'Courier New', monospace; font-weight: bold; font-size: 15px; cursor: pointer; transition: 0.25s; }
         .restart-btn:hover { background: #2f1810; color: #ffe0c0; border-color: #8a3a2a; box-shadow: 0 0 35px rgba(200,50,20,0.5); transform: scale(1.03); }
         .bomb-btn { background: #4a1a0a; border: 2px solid #ff6633; color: #ff8844; padding: 6px 20px; border-radius: 40px; font-family: 'Courier New', monospace; font-weight: bold; font-size: 16px; cursor: pointer; transition: 0.25s; animation: pulse 1s infinite; }
         .bomb-btn:hover { background: #6a2a1a; color: #ffaa66; border-color: #ff8844; transform: scale(1.05); }
         .bomb-btn:disabled { opacity: 0.4; cursor: not-allowed; animation: none; }
-        .freeze-btn { background: #0a1a2a; border: 2px solid #44aaff; color: #66ccff; padding: 6px 20px; border-radius: 40px; font-family: 'Courier New', monospace; font-weight: bold; font-size: 16px; cursor: pointer; transition: 0.25s; animation: freezePulse 1s infinite; }
+        .freeze-btn { background: #0a1a2a; border: 2px solid #44aaff; color: #66ccff; padding: 6px 20px; border-radius: 40px; font-family: 'Courier New', monospace; font-weight: bold; font-size: 16px; cursor: pointer; transition: 0.25s; min-width: 110px; }
         .freeze-btn:hover { background: #1a2a3a; color: #88ddff; border-color: #66ccff; transform: scale(1.05); }
         .freeze-btn:disabled { opacity: 0.4; cursor: not-allowed; animation: none; }
+        .freeze-btn.ready { animation: freezePulse 1s infinite; }
+        .freeze-btn.cooldown { background: #1a1010; border-color: #4a3a3a; color: #665544; animation: none; }
+        .freeze-btn.active { background: #0a2a3a; border-color: #66ccff; color: #88ddff; animation: none; }
         @keyframes pulse { 0%, 100% { box-shadow: 0 0 10px rgba(255, 100, 0, 0.3); } 50% { box-shadow: 0 0 30px rgba(255, 100, 0, 0.6); } }
         @keyframes freezePulse { 0%, 100% { box-shadow: 0 0 10px rgba(100, 200, 255, 0.3); } 50% { box-shadow: 0 0 30px rgba(100, 200, 255, 0.6); } }
-        @media (max-width: 960px) { .game-wrapper { padding: 10px; } #gameCanvas { width: 100%; height: auto; aspect-ratio: 900/600; } .ui-bar { font-size: 13px; justify-content: center; } }
+        @media (max-width: 960px) { .game-wrapper { padding: 10px; } #gameCanvas { width: 100%; height: auto; aspect-ratio: 900/600; } .ui-bar { font-size: 13px; justify-content: center; } .freeze-btn { min-width: 80px; font-size: 13px; padding: 4px 14px; } }
     </style>
 </head>
 <body>
@@ -40,16 +42,15 @@
         <div class="ui-box">❯❯❯ LEVEL <span id="levelDisplay">1</span></div>
         <div class="ui-box">⛨ HEALTH <span id="healthDisplay">7</span></div>
         <div class="ui-box">💥 BOM <span id="bombDisplay">0</span></div>
-        <div class="ui-box">❄️ <span id="freezeDisplay">✓</span></div>
         <button class="bomb-btn" id="bombBtn">☣︎ LEDAKIN</button>
-        <button class="freeze-btn" id="freezeBtn">❄️ FREEZE</button>
+        <button class="freeze-btn ready" id="freezeBtn">❄️ FREEZE</button>
         <button class="restart-btn" id="restartBtn">↻ RESPAWN</button>
     </div>
 </div>
 
 <script>
     // ============================================================
-    //  NIGHT SHOOTER — HIGHSCORE SYSTEM
+    //  NIGHT SHOOTER — Cooldown di Tombol Freeze
     // ============================================================
 
     const canvas = document.getElementById('gameCanvas');
@@ -60,11 +61,10 @@
     const healthSpan = document.getElementById('healthDisplay');
     const levelSpan = document.getElementById('levelDisplay');
     const bombSpan = document.getElementById('bombDisplay');
-    const freezeSpan = document.getElementById('freezeDisplay');
     const bombBtn = document.getElementById('bombBtn');
     const freezeBtn = document.getElementById('freezeBtn');
 
-    // ---- HIGHSCORE (localStorage) ----
+    // ---- HIGHSCORE ----
     let highscore = parseInt(localStorage.getItem('nightShooterHighscore')) || 0;
     highscoreSpan.textContent = highscore;
 
@@ -88,12 +88,12 @@
     let nextBombScore = BOMB_INTERVAL;
     let bombActive = false;
 
-    // ---- FREEZE (5 DETIK) ----
+    // ---- FREEZE ----
     let freezeActive = false;
     let freezeTimer = 0;
-    const FREEZE_DURATION = 300;
+    const FREEZE_DURATION = 300; // 5 detik
     let freezeCooldown = 0;
-    const FREEZE_COOLDOWN = 420;
+    const FREEZE_COOLDOWN = 420; // 7 detik
     let freezeReady = true;
 
     // ---- PARAMETER ----
@@ -393,7 +393,6 @@
             highscore = score;
             localStorage.setItem('nightShooterHighscore', highscore);
             highscoreSpan.textContent = highscore;
-            // Efek HIGHSCORE BARU
             for (let i=0; i<30; i++) {
                 const a = Math.random()*2*Math.PI;
                 const s = 3 + Math.random()*8;
@@ -421,9 +420,8 @@
         freezeTimer = 0;
         freezeCooldown = 0;
         freezeBtn.disabled = true;
-        freezeBtn.textContent = '❄️ ...';
-        freezeSpan.textContent = '⏳';
-        freezeSpan.style.color = '#66ccff';
+        freezeBtn.textContent = '❄️ 5s';
+        freezeBtn.className = 'freeze-btn active';
         
         for (let j=0; j<60; j++) {
             const a = Math.random()*2*Math.PI;
@@ -444,10 +442,9 @@
             freezeActive = false;
             freezeReady = false;
             freezeCooldown = 0;
-            freezeBtn.textContent = '❄️ ...';
             freezeBtn.disabled = true;
-            freezeSpan.textContent = '⏳';
-            freezeSpan.style.color = '#ff8844';
+            freezeBtn.textContent = '⏳ 7s';
+            freezeBtn.className = 'freeze-btn cooldown';
             updateUI();
         }, FREEZE_DURATION / 60 * 1000);
     }
@@ -458,27 +455,27 @@
         levelSpan.textContent = level;
         highscoreSpan.textContent = highscore;
         bombSpan.textContent = bombCount;
+        
+        // BOM BUTTON
         bombBtn.disabled = (bombCount <= 0 || bombActive);
         bombBtn.textContent = bombActive ? '💥 BOOM!' : '☣︎ LEDAKIN';
         bombBtn.style.borderColor = bombCount > 0 ? '#ff8844' : '#4a2a1a';
         bombBtn.style.color = bombCount > 0 ? '#ff8844' : '#665544';
 
+        // FREEZE BUTTON (cooldown ada di tombol)
         if (freezeActive) {
             const remaining = Math.ceil((FREEZE_DURATION - freezeTimer) / 60);
-            freezeSpan.textContent = `❄️ ${remaining}s`;
-            freezeSpan.style.color = '#66ccff';
             freezeBtn.textContent = `❄️ ${remaining}s`;
+            freezeBtn.className = 'freeze-btn active';
             freezeBtn.disabled = true;
         } else if (freezeReady) {
-            freezeSpan.textContent = '✓';
-            freezeSpan.style.color = '#66ccff';
             freezeBtn.textContent = '❄️ FREEZE';
+            freezeBtn.className = 'freeze-btn ready';
             freezeBtn.disabled = false;
         } else {
             const remaining = Math.ceil(freezeCooldown / 60);
-            freezeSpan.textContent = `${remaining}s`;
-            freezeSpan.style.color = '#ff8844';
             freezeBtn.textContent = `⏳ ${remaining}s`;
+            freezeBtn.className = 'freeze-btn cooldown';
             freezeBtn.disabled = true;
         }
     }
@@ -500,8 +497,7 @@
         bombBtn.disabled = true;
         freezeBtn.disabled = false;
         freezeBtn.textContent = '❄️ FREEZE';
-        freezeSpan.textContent = '✓';
-        freezeSpan.style.color = '#66ccff';
+        freezeBtn.className = 'freeze-btn ready';
         updateUI();
     }
 
@@ -590,7 +586,7 @@
                     health = 0;
                     gameOver = true;
                     screenShake = 3;
-                    checkHighscore(); // SAVE HIGHSCORE SAAT GAME OVER
+                    checkHighscore();
                     updateUI();
                 }
                 continue;
@@ -847,9 +843,11 @@
     // ---- START ----
     restartGame();
     gameLoop();
-    console.log('👻 NIGHT SHOOTER || HIGHSCORE SYSTEM || 👻');
-    console.log(`🏆 Highscore saat ini: ${highscore}`);
-    console.log('💾 Tersimpan di localStorage browser');
+    console.log('👻 NIGHT SHOOTER || Cooldown di Tombol Freeze || 👻');
+    console.log('❄️ Tombol freeze berubah teks sesuai status');
+    console.log('  - ❄️ FREEZE = siap pakai');
+    console.log('  - ❄️ 5s = sedang aktif (sisa detik)');
+    console.log('  - ⏳ 7s = cooldown');
 </script>
 </body>
 </html>
