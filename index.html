@@ -257,9 +257,9 @@
 
         ctx.fillStyle = 'rgba(255, 200, 150, 0.2)';
         ctx.font = '12px monospace';
-        ctx.fillText(`⚡ ${Math.round(getEnemySpeed()*10)/10}`, 20, 580);
-        ctx.fillText(`👻 ${enemies.length}/${Math.round(getMaxEnemies())}`, 120, 580);
-        ctx.fillText(`💣 ${bombCount}`, 220, 580);
+        ctx.fillText(`⚡︎ ${Math.round(getEnemySpeed()*10)/10}`, 20, 580);
+        ctx.fillText(`☠︎︎ ${enemies.length}/${Math.round(getMaxEnemies())}`, 120, 580);
+        ctx.fillText(`☣︎ ${bombCount}`, 220, 580);
 
         if (bombActive) {
             ctx.fillStyle = 'rgba(255, 100, 0, 0.08)';
@@ -595,7 +595,7 @@
             window._gameLoopStarted = true;
             gameLoop();
         }
-        console.log('🔥 AYO GASS!');
+        console.log('ৡ AYO GASS!');
     }
 
     startBtn.addEventListener('click', startGame);
@@ -841,7 +841,7 @@
         ctx.fillStyle = 'rgba(255,200,100,0.2)';
         ctx.font = '12px monospace';
         ctx.textAlign = 'center';
-        ctx.fillText(`👆 ${activeCount} jari | 💣 ${bombCount}`, 450, 580);
+        ctx.fillText(`✌︎︎ ${activeCount} jari | ☣︎ ${bombCount}`, 450, 580);
         ctx.textAlign = 'left';
 
         if (gameOver) {
